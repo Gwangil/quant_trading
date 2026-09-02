@@ -8,6 +8,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib import font_manager
+import logging
+logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 _KO_FONTS = ["NanumGothic", "Malgun Gothic", "AppleGothic", "Noto Sans CJK KR", "WenQuanYi Zen Hei"]
 _avail = {f.name for f in font_manager.fontManager.ttflist}
@@ -38,7 +40,9 @@ def render_markdown(res: BacktestResult, m: dict | None = None, title: str | Non
     cfg = res.cfg
     sym, ref = cfg.data.symbol, cfg.data.reference
     if cfg.data.synthetic is not None:
-        sym = f"{ref}×{cfg.data.synthetic.leverage:g} 합성"
+        syn = cfg.data.synthetic
+        beta = f"×{syn.beta:g}" if syn.beta != 1.0 else ""
+        sym = f"{ref}{beta}×{syn.leverage:g} 합성"
     keys = lambda d: [fmt_pct(d.get("simple_annual")), fmt_pct(d.get("cagr")), fmt_pct(d.get("mdd")),
                       str(d.get("mdd_recover_days") if d.get("mdd_recover_days") is not None else "미회복"),
                       str(d.get("max_underwater_days")), f"{d.get('sharpe', float('nan')):.2f}",

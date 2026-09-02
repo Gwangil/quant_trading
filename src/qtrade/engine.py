@@ -28,8 +28,28 @@ def prepare_frame(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> pd.D
     df = (data if data is not None else build_dataset(cfg.data)).copy()
     df["vol"] = realized_vol(df["close"], cfg.entry.vol_window)
     ma = sma(df["ref_close"], cfg.regime.ma_window)
-    df["bull"] = (df["ref_close"] > ma).where(ma.notna(), other=np.nan)
+    df["bull"] = regime_flags(df["ref_close"], ma, cfg.regime.ma_band)
     return df
+
+
+def regime_flags(ref: pd.Series, ma: pd.Series, band: float) -> pd.Series:
+    """히스테리시스 밴드가 있는 강세/약세 플래그. MA 미산출 구간은 NaN."""
+    if band <= 0:
+        return (ref > ma).where(ma.notna(), other=np.nan)
+    out = np.full(len(ref), np.nan)
+    state = None
+    r, m = ref.values, ma.values
+    for i in range(len(r)):
+        if np.isnan(m[i]):
+            continue
+        if state is None:
+            state = r[i] > m[i]
+        elif state and r[i] < m[i] * (1 - band):
+            state = False
+        elif not state and r[i] > m[i] * (1 + band):
+            state = True
+        out[i] = state
+    return pd.Series(out, index=ref.index)
 
 
 def _trading_start_index(cfg: StrategyConfig, df: pd.DataFrame) -> int:

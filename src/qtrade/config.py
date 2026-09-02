@@ -50,6 +50,7 @@ class EntryConfig:
     first_slice_mult: float = 1.0      # 첫 슬라이스 크기 배수
     depth_boost: float = 0.0           # 평단 대비 −10%마다 슬라이스 배수 가산 (물타기 가속, 0=비활성)
     max_slice_mult: float = 3.0
+    target_vol: float | None = None    # 변동성 타게팅: 슬라이스 × min(1, target_vol/σ). 급변동기 매수 축소 (예: 0.04)
 
 
 @dataclass
@@ -69,12 +70,15 @@ class ExitConfig:
 class RegimeConfig:
     enabled: bool = True
     ma_window: int = 200               # 기준 지수 종가 vs 이동평균 → 강세/약세
+    ma_band: float = 0.0               # 히스테리시스 밴드: 강세 전환은 MA×(1+band) 상향, 약세 전환은 MA×(1−band) 하향 돌파
     bear_max_baskets: int = 2          # 약세장에서 동시 운용 가능한 바스켓 수
     bear_slice_mult: float = 0.5       # 약세장 슬라이스 크기 배수
     bear_no_new_lots: bool = False     # 약세장에서는 신규 매수 자체를 중단
     bear_liquidate: bool = False       # 약세 전환 시 bear_max_baskets 초과분(수익률 낮은 순)을 청산
     portfolio_dd_brake: float | None = None   # 전략 자산이 고점 대비 이만큼 빠지면 약세로 강제 (예: 0.25)
     portfolio_dd_brake_days: int = 40         # 브레이크 지속 거래일 (이후 해제, 새 저점 갱신 시 재발동)
+    cooldown_after_sl_days: int = 0           # 바스켓 손절 후 이 기간 동안 신규 바스켓 오픈 금지
+    max_vol_to_open: float | None = None      # 일변동성이 이 값 초과면 신규 바스켓 오픈 금지 (예: 0.06)
 
 
 @dataclass

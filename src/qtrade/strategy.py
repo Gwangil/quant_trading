@@ -94,6 +94,8 @@ class BasketStrategy:
         self.baskets: list[Basket] = []
         self._next_id = 1
         self._last_open_idx: int | None = None
+        self._last_sl_idx: int | None = None
+        self._vol: float = 0.0
 
     # ---- 조회 ----
     def active_baskets(self) -> list[Basket]:
@@ -122,12 +124,19 @@ class BasketStrategy:
             m += e.depth_boost * (depth / 0.10)  # −10% 당 depth_boost 가산
         if not bull and self.cfg.regime.enabled:
             m *= self.cfg.regime.bear_slice_mult
+        if e.target_vol is not None and self._vol and self._vol > e.target_vol:
+            m *= e.target_vol / self._vol
         return min(m, e.max_slice_mult)
 
     # ---- 바스켓 라이프사이클 ----
     def maybe_open_basket(self, idx: int, date: pd.Timestamp, equity: float,
-                          idle_cash: float, bull: bool) -> Basket | None:
+                          idle_cash: float, bull: bool, vol: float = 0.0) -> Basket | None:
         bc, rc = self.cfg.baskets, self.cfg.regime
+        if rc.enabled and rc.max_vol_to_open is not None and vol > rc.max_vol_to_open:
+            return None
+        if (rc.enabled and rc.cooldown_after_sl_days > 0 and self._last_sl_idx is not None
+                and idx - self._last_sl_idx < rc.cooldown_after_sl_days):
+            return None
         max_active = bc.count
         if rc.enabled and not bull:
             max_active = min(max_active, rc.bear_max_baskets)
@@ -175,6 +184,7 @@ class BasketStrategy:
         orders: list[Order] = []
         returned = 0.0
         cfg = self.cfg
+        self._vol = float(vol) if vol == vol else 0.0
 
         # 0) 약세 전환 시 초과 바스켓 청산 (수익률 낮은 순)
         forced: set[int] = set()
@@ -189,6 +199,8 @@ class BasketStrategy:
         for b in self.active_baskets():
             reason = "regime_bear" if b.id in forced else self.exit_reason(b, idx, price)
             if reason is not None:
+                if reason in ("basket_sl", "regime_bear"):
+                    self._last_sl_idx = idx
                 if b.lots:
                     b.status = "liquidating"
                     b.close_reason = reason
@@ -230,7 +242,7 @@ class BasketStrategy:
 
         # 2) 신규 바스켓 오픈 (오픈 즉시 첫 슬라이스 주문)
         idle_cash += returned
-        nb = self.maybe_open_basket(idx, date, equity, idle_cash, bull)
+        nb = self.maybe_open_basket(idx, date, equity, idle_cash, bull, vol)
         if nb is not None:
             if not (cfg.regime.enabled and not bull and cfg.regime.bear_no_new_lots):
                 slice_val = nb.budget / cfg.baskets.slices

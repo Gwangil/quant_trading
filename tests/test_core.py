@@ -101,3 +101,16 @@ def test_config_roundtrip_and_overrides():
     assert cfg2.baskets.count == 3 and cfg.baskets.count == 5
     with pytest.raises(KeyError):
         config_from_dict({"nope": 1})
+
+
+def test_regime_hysteresis_reduces_flips():
+    from qtrade.engine import regime_flags
+    from qtrade.indicators import sma
+    idx = pd.bdate_range("2020-01-01", periods=300)
+    rng = np.random.default_rng(1)
+    ref = pd.Series(100 + np.cumsum(rng.normal(0, 1, 300)), idx)
+    ma = sma(ref, 50)
+    f0 = regime_flags(ref, ma, 0.0).dropna()
+    f2 = regime_flags(ref, ma, 0.03).dropna()
+    assert (f0.diff().abs().sum()) >= (f2.diff().abs().sum())
+    assert set(f2.unique()).issubset({0.0, 1.0})

@@ -1,18 +1,19 @@
-# 실전 기본(균형형): SOXL / SOXX. yfinance 로 data/cache 에 내려받음 (pip install yfinance).
-name: soxl_basket
+# 번들 프록시(NASDAQ×3 합성, 1999~2018)로 검증한 공격형 설정. 네트워크 불필요.
+name: proxy_nasdaq3x_aggressive
 initial_capital: 100000
 cash_yield_annual: 0.0
 data:
-  symbol: SOXL
-  reference: SOXX
-  source: yfinance
-  start: '2011-01-03'
-  end: null
-  backfill: false
-  synthetic: null
+  symbol: NASDAQ3X
+  reference: NASDAQ
+  source: bundled
+  synthetic:
+    leverage: 3
+    beta: 1.0
+    expense_ratio: 0.0095
+    financing_rate: 0.02
 baskets:
   count: 4
-  slices: 8
+  slices: 4
   min_days_between_opens: 3
   min_budget_frac: 0.25
   budget_frac: null
@@ -27,10 +28,10 @@ entry:
   max_slice_mult: 3.0
   target_vol: 0.045
 exit:
-  lot_tp_vol_mult: 1.5
+  lot_tp_vol_mult: 3.0
   min_lot_tp_pct: 0.03
   max_lot_tp_pct: 0.15
-  lot_tp_sell_frac: 1.0
+  lot_tp_sell_frac: 0.5
   basket_tp_pct: 0.2
   basket_sl_pct: 0.25
   max_hold_days: 60
@@ -39,8 +40,8 @@ exit:
 regime:
   enabled: true
   ma_window: 200
-  ma_band: 0.02
-  bear_max_baskets: 0
+  ma_band: 0.0
+  bear_max_baskets: 1
   bear_slice_mult: 0.5
   bear_no_new_lots: false
   bear_liquidate: true

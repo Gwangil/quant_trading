@@ -1,0 +1,19 @@
+# 3차 탐색: 급락 구간 방어 규칙 (레짐 창, 손절 후 쿨다운, 변동성 게이트)
+split: "2009-07-01"
+max_mdd: -0.40
+by: simple_annual
+grid:
+  baskets.count: [4]
+  baskets.slices: [4, 8]
+  entry.dip_vol_mult: [0.25]
+  entry.min_dip_pct: [0.0]
+  exit.lot_tp_vol_mult: [1.5, 3.0]
+  exit.lot_tp_sell_frac: [0.5, 1.0]
+  exit.basket_tp_pct: [0.20]
+  exit.basket_sl_pct: [0.20, 0.30]
+  exit.max_hold_days: [60]
+  regime.bear_liquidate: [true]
+  regime.bear_max_baskets: [0, 1]
+  regime.ma_window: [100, 200]
+  regime.cooldown_after_sl_days: [0, 20]
+  regime.max_vol_to_open: [null, 0.06]
