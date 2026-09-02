@@ -1,0 +1,13 @@
+# 1차 탐색: 레짐/청산 규칙이 MDD 와 수익률에 미치는 영향
+split: "2009-07-01"       # 학습(1999~2009 상반기) / 검증(2009 하반기~2018)
+max_mdd: -0.40
+by: simple_annual
+grid:
+  baskets.count: [4, 6]
+  baskets.slices: [4, 8]
+  exit.basket_tp_pct: [0.08, 0.15]
+  exit.basket_sl_pct: [0.20, 0.35]
+  exit.max_hold_days: [40, 80]
+  regime.bear_max_baskets: [0, 1, 2]
+  regime.bear_liquidate: [false, true]
+  regime.portfolio_dd_brake: [null, 0.25]

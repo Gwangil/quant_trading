@@ -1,479 +1,71 @@
-# Quant Trading System
+# quant_trading — 분할 바스켓 LOC 전략 (레버리지 ETF 일 1회 종가 주문)
 
-A comprehensive microservices-based quantitative trading system for US ETFs with multiple investment strategies, risk management, and automated order generation.
+> 미국 레버리지 ETF(기본: SOXL, 기준지수 SOXX)를 대상으로 **하루 한 번 종가 주문(LOC/MOC)** 만으로 운용하는
+> 퀀트 전략의 설계 · 백테스트 · 실전 주문표 생성 도구입니다.
+> 이전 마이크로서비스 프로젝트는 `backup/old-main-msa` 브랜치에 보존되어 있습니다.
 
-## 🎯 Features
+## 전략 한 줄 요약
 
-### Core Functionality
-- **Multi-Portfolio Management**: Run multiple portfolios simultaneously with different risk profiles
-- **Multi-Timeframe Strategies**: Automatic repetition based on investment periods (ultra-short to ultra-long)
-- **Data Collection**: Multi-source data collection with fallback mechanisms (Yahoo Finance, Alpha Vantage, Polygon.io)
-- **Investment Strategies**:
-  - Momentum Trading
-  - Mean Reversion
-  - Machine Learning (ML) Based
-  - Trend Following
-  - Volatility Trading
-  - Pairs Trading
-  - Sector Rotation
-  - Buy & Hold
+**자산을 N개 바스켓으로 나누고, 바스켓마다 "떨어지면 사고(LOC 매수) · 오르면 판다(로트별 LOC 익절)"를 반복하되,
+바스켓은 목표수익 / 손실한도 / 보유기간 중 하나로 주기적으로 전량 청산해 현금을 회수한다.
+기준지수의 추세(200일선)로 약세장을 판정하면 동시 바스켓 수와 매수 규모를 줄여 MDD 를 관리한다.**
 
-### Portfolio Types
-1. **Conservative Portfolio**: Safe, long-term focused (40% trend, 30% mean reversion, 30% dividend ETFs)
-2. **Balanced Portfolio**: Medium risk/return (25% each: momentum, ML, trend, sector rotation)
-3. **Aggressive Portfolio**: High risk/return (30% leveraged momentum, 20% volatility, 50% pairs/ML)
-4. **Multi-Timeframe Portfolio**: Mixed periods (15% ultra-short to 15% ultra-long)
+자세한 설계 근거는 [docs/01_strategy_design.md](docs/01_strategy_design.md),
+백테스트 결과는 [docs/02_backtest_results.md](docs/02_backtest_results.md),
+실전 운용 절차는 [docs/03_live_operation.md](docs/03_live_operation.md) 를 보세요.
 
-### Risk Management
-- **Risk Profiles**: 5 levels (Very Safe → Very Risky)
-- **Investment Periods**:
-  - Ultra Short: 1-5 days
-  - Short: 1-4 weeks
-  - Medium: 1-3 months
-  - Long: 3-12 months
-  - Ultra Long: 1+ years
-- **Portfolio Optimization**: Dynamic allocation with rebalancing
-- **Position Sizing**: Automated based on risk tolerance
-- **Stop Loss & Take Profit**: Configurable per strategy
-
-### System Architecture
-- **Microservices Architecture**: Docker-based MSA
-- **Databases**:
-  - PostgreSQL for core data
-  - TimescaleDB for time-series market data
-  - Redis for caching
-- **Message Queue**: RabbitMQ for inter-service communication
-- **Real-time Processing**: WebSocket support for live data
-
-## 📦 Services
-
-1. **Data Collector Service**: Fetches and stores market data from multiple sources
-2. **Strategy Engine**: Generates trading signals with portfolio management
-3. **Backtesting Service**: Tests strategies with historical data and period-based repetition
-4. **Order Generator**: Creates daily order sheets
-5. **API Gateway**: Central API access point
-6. **Admin UI**: Web-based dashboard
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Docker & Docker Compose
-- Python 3.11+
-- Node.js 18+
-- (Optional) API keys for data sources
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone <repository>
-cd quant_strategy
-```
-
-2. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configurations
-```
-
-3. Configure portfolios (optional):
-```bash
-# In .env file:
-ACTIVE_PORTFOLIOS=Balanced Portfolio,Multi-Timeframe Portfolio
-PORTFOLIO_CAPITAL_ALLOCATION=0.5,0.5
-```
-
-4. Start all services:
-```bash
-docker-compose up -d
-```
-
-5. Initialize the database:
-```bash
-make db-init
-```
-
-6. Access the Admin UI:
-```
-http://localhost:3000
-```
-
-## 📊 API Endpoints
-
-### Main API Gateway (Port 8000)
-
-- `GET /health` - Health check
-- `GET /portfolio` - Current portfolio state
-- `GET /portfolios/active` - List active portfolios
-- `POST /strategies/run` - Run strategies
-- `GET /signals/latest` - Latest trading signals
-- `GET /orders/sheet` - Today's order sheet
-
-### Backtesting Service (Port 8001)
-
-- `POST /backtest` - Run backtest with period repetition
-- `POST /backtest/multi-period` - Run multi-period backtest
-- `POST /optimize` - Optimize strategy parameters
-- `GET /backtest/{id}` - Get backtest results
-- `POST /compare` - Compare multiple backtest results
-
-## 💹 Multi-Strategy Portfolio Configuration
-
-### Running Multiple Portfolios
-
-Configure in `.env`:
-```bash
-# Run 2 portfolios simultaneously
-ACTIVE_PORTFOLIOS=Balanced Portfolio,Aggressive Portfolio
-PORTFOLIO_CAPITAL_ALLOCATION=0.7,0.3  # 70% balanced, 30% aggressive
-
-# Enable multi-period backtesting
-ENABLE_MULTI_PERIOD_BACKTEST=true
-COMPOUND_RETURNS=true
-```
-
-### Strategy Execution Frequency
-
-Each strategy runs based on its investment period:
-```bash
-ULTRA_SHORT_FREQUENCY=1    # Daily
-SHORT_FREQUENCY=3           # Every 3 days
-MEDIUM_FREQUENCY=7          # Weekly
-LONG_FREQUENCY=14           # Bi-weekly
-ULTRA_LONG_FREQUENCY=30     # Monthly
-```
-
-### Example: 3-Year Backtest with Period Repetition
+## 설치
 
 ```bash
-curl -X POST http://localhost:8001/backtest/multi-period \
-  -H "Content-Type: application/json" \
-  -d '{
-    "portfolio_name": "Multi-Timeframe Portfolio",
-    "start_date": "2021-01-01",
-    "end_date": "2024-01-01",
-    "initial_capital": 100000,
-    "enable_repetition": true,
-    "compound_returns": true
-  }'
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[data,dev]"      # yfinance 포함
+pytest -q
 ```
 
-Expected repetitions over 3 years:
-- Ultra-short strategies: ~700 times
-- Short strategies: ~150 times
-- Medium strategies: ~36 times
-- Long strategies: ~12 times
-- Ultra-long strategies: ~3 times
+## 사용법
 
-## 🔧 Configuration
-
-### Risk Profiles Configuration
-
-Each risk profile has different constraints:
-```python
-# Very Safe: Max 5% per position, no leverage
-# Safe: Max 10% per position, no leverage
-# Normal: Max 15% per position, 1.5x leverage
-# Risky: Max 20% per position, 2x leverage
-# Very Risky: Max 30% per position, 3x leverage
-```
-
-### Adding Custom Portfolios
-
-Edit `services/strategy_engine/src/config.py`:
-```python
-DEFAULT_PORTFOLIOS.append({
-    'name': 'My Custom Portfolio',
-    'strategies': [
-        {
-            'name': 'my_strategy',
-            'type': 'momentum',
-            'risk_profile': 'normal',
-            'investment_period': 'medium',
-            'allocation': 0.5,
-            'parameters': {...}
-        }
-    ]
-})
-```
-
-## 📈 Backtesting
-
-### Standard Backtest
 ```bash
-make backtest
+# 1) 백테스트 (번들 프록시 데이터: 네트워크 불필요)
+qtrade backtest -c configs/proxy_nasdaq3x.yaml -o reports
+
+# 2) 실제 SOXL/SOXX 로 백테스트 (yfinance 로 내려받아 data/cache 에 저장)
+qtrade backtest -c configs/soxl_basket.yaml -o reports
+
+# 3) 파라미터 탐색 (학습/검증 분리 포함)
+qtrade sweep -c configs/soxl_basket.yaml -g configs/sweep_core.yaml -o reports/sweeps --top 20
+
+# 4) 다음 거래일 주문표
+qtrade orders -c configs/soxl_basket.yaml -o reports/orders
 ```
 
-### Multi-Period Backtest with Repetition
-```python
-# API call
-POST /backtest/multi-period
-{
-    "portfolio_name": "Balanced Portfolio",
-    "start_date": "2020-01-01",
-    "end_date": "2023-12-31",
-    "initial_capital": 100000,
-    "enable_repetition": true,  # Short-term strategies repeat
-    "compound_returns": true    # Reinvest profits
-}
+`python -m qtrade ...` 로도 실행됩니다.
+
+## 프로젝트 구조
+
+```
+configs/            전략 설정(YAML)과 탐색 그리드
+  soxl_basket.yaml        실전 기본 설정 (SOXL / SOXX, yfinance)
+  proxy_nasdaq3x.yaml     번들 데이터 프록시 (NASDAQ×3 합성, 1999~2018)
+  proxy_semi3x_stress.yaml 반도체 스트레스 프록시 (NASDAQ×1.3 민감도 ×3)
+  sweep_*.yaml            파라미터 그리드
+data/bundled/       오프라인 검증용 지수 일봉 (NASDAQ, SP500 1999-2018)
+data/cache/         yfinance 캐시 (git 제외)
+src/qtrade/
+  config.py         설정 dataclass / YAML 로더 / 점 표기 오버라이드
+  data.py           데이터 로딩, 레버리지 합성, 백필
+  strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (전략의 핵심)
+  engine.py         LOC/MOC 종가 체결 시뮬레이션, 자산·거래 기록
+  metrics.py        단리/CAGR/MDD/회복기간/연도별 수익률
+  report.py         마크다운 + 차트 리포트
+  sweep.py          그리드 탐색 (멀티프로세스, 학습/검증 분리)
+  orders.py         실전 주문표 생성 (전 구간 재현 방식)
+  cli.py            qtrade 명령
+tests/              pytest
+reports/            생성된 리포트
+docs/               설계 · 결과 · 운용 문서
 ```
 
-### Compare Multiple Strategies
-```bash
-curl -X POST http://localhost:8001/compare \
-  -d '{"backtest_ids": ["id1", "id2", "id3"]}'
-```
+## 주의
 
-## 📝 Order Generation
-
-Daily order sheets are generated with portfolio allocation:
-
-```json
-{
-  "portfolio": "Balanced Portfolio",
-  "date": "2024-01-15",
-  "orders": [
-    {
-      "strategy": "momentum_medium",
-      "symbol": "SPY",
-      "action": "BUY",
-      "quantity": 100,
-      "allocation": 0.25
-    }
-  ]
-}
-```
-
-## 🔒 Security & Risk Management
-
-- **Portfolio-level stop loss**: 15% default
-- **Daily loss limit**: 5% default
-- **Strategy correlation monitoring**: Alert if >70%
-- **Cash reserve**: 5% minimum
-- **Dynamic risk adjustment**: Based on market volatility
-
-## 📊 Monitoring & Alerts
-
-### Performance Tracking
-- Real-time portfolio value
-- Strategy-level P&L
-- Risk metrics (Sharpe, Sortino, Max Drawdown)
-- Execution statistics per period
-
-### Alert Thresholds
-```bash
-DRAWDOWN_ALERT_THRESHOLD=-0.1        # 10% drawdown
-UNDERPERFORMANCE_THRESHOLD=-0.15     # 15% underperformance
-CORRELATION_ALERT=0.9                 # 90% correlation
-```
-
-## 🧪 Testing
-
-### Unit Tests
-```bash
-docker-compose exec strategy_engine pytest
-```
-
-### Integration Tests
-```bash
-docker-compose -f docker-compose.test.yml up
-```
-
-### Backtest Validation
-```bash
-# Run backtest with known data
-make test-backtest
-```
-
-## 🚢 Production Deployment
-
-1. Update environment variables:
-```bash
-ENVIRONMENT=production
-BROKER_PAPER_TRADING=false  # Enable live trading
-```
-
-2. Deploy with production compose:
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-3. Set up monitoring:
-```bash
-PROMETHEUS_ENABLED=true
-GRAFANA_ENABLED=true
-```
-
-## 📖 Development
-
-### Adding New Strategies
-
-1. Create strategy in `services/strategy_engine/src/strategies/`
-2. Inherit from `BaseStrategy`
-3. Implement `generate_signals()` method
-4. Register in portfolio configuration
-
-### Database Schema
-
-```sql
--- Market Data (TimescaleDB)
-CREATE TABLE market_data (
-    symbol VARCHAR(20),
-    date TIMESTAMP,
-    open, high, low, close DOUBLE,
-    volume BIGINT
-);
-
--- Portfolio State (PostgreSQL)
-CREATE TABLE portfolios (
-    id UUID PRIMARY KEY,
-    name VARCHAR(100),
-    strategies JSONB,
-    performance JSONB
-);
-```
-
-## 🤝 Next Steps for Implementation
-
-### 1. Essential Setup (Do First)
-```bash
-# 1. Create actual .env file
-cp .env.example .env
-# Edit with your passwords and API keys
-
-# 2. Get free API keys (recommended):
-# - Alpha Vantage: https://www.alphavantage.co/support/#api-key
-# - Polygon.io: https://polygon.io (better data quality)
-
-# 3. Build and start services
-make build
-make up
-
-# 4. Initialize database
-make db-init
-
-# 5. Verify services are running
-docker-compose ps
-```
-
-### 2. Data Collection Setup
-```bash
-# Test data collection
-docker-compose exec data_collector python -c "
-from src.main import DataCollectorService
-service = DataCollectorService()
-service.run_daily_collection()
-"
-
-# Check if data is stored
-docker-compose exec timescaledb psql -U timescale_user -d market_data \
-  -c "SELECT COUNT(*) FROM market_data;"
-```
-
-### 3. Strategy Testing
-```bash
-# Run first backtest
-curl -X POST http://localhost:8001/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "strategy_name": "momentum",
-    "symbols": ["SPY", "QQQ"],
-    "start_date": "2023-01-01",
-    "end_date": "2023-12-31",
-    "initial_capital": 100000
-  }'
-```
-
-### 4. Portfolio Configuration
-```bash
-# Choose portfolios to run
-# Edit .env:
-ACTIVE_PORTFOLIOS=Balanced Portfolio
-PORTFOLIO_CAPITAL_ALLOCATION=1.0
-
-# Or run multiple:
-ACTIVE_PORTFOLIOS=Conservative Portfolio,Aggressive Portfolio
-PORTFOLIO_CAPITAL_ALLOCATION=0.7,0.3
-```
-
-### 5. Monitoring Setup
-```bash
-# Access Admin UI
-open http://localhost:3000
-
-# Check API documentation
-open http://localhost:8000/docs
-
-# Monitor RabbitMQ
-open http://localhost:15672
-# Username: admin, Password: (from .env)
-```
-
-### 6. Testing & Validation
-```bash
-# Run comprehensive backtest
-make test-backtest
-
-# Check system health
-curl http://localhost:8000/health
-curl http://localhost:8001/health
-```
-
-### 7. Production Preparation
-- [ ] Set strong passwords in .env
-- [ ] Get production API keys
-- [ ] Configure SSL certificates
-- [ ] Set up backup strategy
-- [ ] Configure monitoring alerts
-- [ ] Test with paper trading first
-
-## ⚠️ Important Notes
-
-1. **API Keys**: System works without API keys but is more stable with them
-2. **Initial Data**: First run downloads 10 years of historical data (may take time)
-3. **Paper Trading**: Always test with paper trading before live trading
-4. **Backtesting**: Multi-period backtesting gives more realistic results
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-1. **Services not starting**:
-```bash
-docker-compose logs -f [service_name]
-```
-
-2. **Database connection errors**:
-```bash
-# Check database is running
-docker-compose ps postgres timescaledb
-
-# Restart databases
-docker-compose restart postgres timescaledb
-```
-
-3. **No market data**:
-```bash
-# Manually trigger collection
-make collect-data
-```
-
-4. **Strategy not executing**:
-```bash
-# Check strategy engine logs
-docker-compose logs -f strategy_engine
-```
-
-## 📄 License
-
-MIT License
-
-## 🆘 Support
-
-- Issues: GitHub Issues
-- Documentation: `/docs` folder
-- API Docs: http://localhost:8000/docs (FastAPI Swagger)
-
-## ⚠️ Disclaimer
-
-This system is for educational and research purposes. Always test thoroughly before using with real money. Past performance does not guarantee future results.
+- 레버리지 ETF 는 변동성 붕괴(volatility decay)와 −90% 급의 낙폭이 실제로 발생했던 상품입니다. 백테스트 수익률은 미래를 보장하지 않습니다.
+- 번들 프록시(NASDAQ×3 합성)는 실제 ETF 가 아니라 지수 수익률로 합성한 것으로, 실제 SOXL 은 별도 검증이 필요합니다.

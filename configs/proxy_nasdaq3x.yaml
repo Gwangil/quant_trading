@@ -1,0 +1,35 @@
+# 번들 데이터로 실행 가능한 프록시: 나스닥종합지수(1999~2018) × 3배 합성 (TQQQ 유사)
+# 실제 SOXL/SOXX 를 쓰려면 configs/soxl_basket.yaml 을 사용 (yfinance 필요)
+name: proxy_nasdaq3x
+initial_capital: 100000
+cash_yield_annual: 0.0
+data:
+  symbol: NASDAQ3X
+  reference: NASDAQ
+  source: bundled
+  synthetic: {leverage: 3, beta: 1.0, expense_ratio: 0.0095, financing_rate: 0.02}
+baskets: {count: 5, slices: 8, min_days_between_opens: 3, min_budget_frac: 0.25}
+entry:
+  vol_window: 20
+  dip_vol_mult: 0.5
+  min_dip_pct: 0.01
+  max_dip_pct: 0.06
+  first_slice_dip_pct: 0.0
+  depth_boost: 0.0
+  max_slice_mult: 3.0
+exit:
+  lot_tp_vol_mult: 1.5
+  min_lot_tp_pct: 0.03
+  max_lot_tp_pct: 0.15
+  basket_tp_pct: 0.10
+  basket_sl_pct: 0.35
+  max_hold_days: 60
+  hard_max_hold_days: 120
+  soft_exit_pnl_pct: 0.0
+regime:
+  enabled: true
+  ma_window: 200
+  bear_max_baskets: 2
+  bear_slice_mult: 0.5
+  bear_no_new_lots: false
+costs: {commission_pct: 0.0007, slippage_pct: 0.0}

@@ -1,0 +1,41 @@
+# 실전 기본 설정: SOXL (3배 반도체) / 기준지수 SOXX
+# 데이터는 yfinance 로 내려받아 data/cache 에 저장됩니다 (pip install yfinance).
+name: soxl_basket
+initial_capital: 100000
+cash_yield_annual: 0.0          # 대기현금을 단기채 ETF 에 파킹하면 0.04 정도로 설정
+data:
+  symbol: SOXL
+  reference: SOXX
+  source: yfinance              # yfinance | csv(data/cache/SOXL.csv) | bundled
+  start: "2011-01-03"           # 매매 시작일 (지표 워밍업은 그 이전 데이터 사용)
+  backfill: false               # true 면 SOXL 상장(2010-03) 이전을 SOXX×3 합성으로 연장
+baskets: {count: 4, slices: 4, min_days_between_opens: 3, min_budget_frac: 0.25, budget_frac: null}
+entry:
+  vol_window: 20
+  dip_vol_mult: 0.5
+  min_dip_pct: 0.01
+  max_dip_pct: 0.06
+  first_slice_dip_pct: 0.0
+  first_slice_mult: 1.0
+  depth_boost: 0.0
+  max_slice_mult: 3.0
+exit:
+  lot_tp_vol_mult: 1.5
+  min_lot_tp_pct: 0.03
+  max_lot_tp_pct: 0.15
+  lot_tp_sell_frac: 1.0
+  basket_tp_pct: 0.10
+  basket_sl_pct: 0.25
+  max_hold_days: 60
+  hard_max_hold_days: 120
+  soft_exit_pnl_pct: 0.0
+regime:
+  enabled: true
+  ma_window: 200
+  bear_max_baskets: 1
+  bear_slice_mult: 0.5
+  bear_no_new_lots: false
+  bear_liquidate: true
+  portfolio_dd_brake: null
+  portfolio_dd_brake_days: 40
+costs: {commission_pct: 0.0007, slippage_pct: 0.0}
