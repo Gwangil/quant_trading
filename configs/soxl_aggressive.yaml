@@ -1,4 +1,4 @@
-# 실전 공격형: 약세장에서도 바스켓 1개로 분할매수 지속, 부분 익절로 추세 이익 일부 보존. MDD 가 큼.
+# 실전 공격형: 슬라이스 4, 레짐 밴드 없음. 수익은 높지만 MDD −50% 안팎을 감수해야 함.
 name: soxl_aggressive
 initial_capital: 100000
 cash_yield_annual: 0.0
@@ -16,6 +16,7 @@ baskets:
   min_days_between_opens: 3
   min_budget_frac: 0.25
   budget_frac: null
+  budget_mode: equity
 entry:
   vol_window: 20
   dip_vol_mult: 0.25
@@ -27,12 +28,12 @@ entry:
   max_slice_mult: 3.0
   target_vol: 0.045
 exit:
-  lot_tp_vol_mult: 3.0
+  lot_tp_vol_mult: 0.5
   min_lot_tp_pct: 0.03
   max_lot_tp_pct: 0.15
-  lot_tp_sell_frac: 0.5
+  lot_tp_sell_frac: 1.0
   basket_tp_pct: 0.2
-  basket_sl_pct: 0.25
+  basket_sl_pct: null
   max_hold_days: 60
   hard_max_hold_days: 120
   soft_exit_pnl_pct: 0.0
@@ -49,5 +50,5 @@ regime:
   cooldown_after_sl_days: 20
   max_vol_to_open: null
 costs:
-  commission_pct: 0.0007
+  commission_pct: 0.001
   slippage_pct: 0.0

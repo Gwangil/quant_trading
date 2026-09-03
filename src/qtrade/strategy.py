@@ -144,7 +144,8 @@ class BasketStrategy:
             return None
         if self._last_open_idx is not None and idx - self._last_open_idx < bc.min_days_between_opens:
             return None
-        nominal = equity * (bc.budget_frac if bc.budget_frac else 1.0 / bc.count)
+        base = self.cfg.initial_capital if bc.budget_mode == "fixed" else equity
+        nominal = base * (bc.budget_frac if bc.budget_frac else 1.0 / bc.count)
         budget = min(nominal, idle_cash)
         if budget < nominal * bc.min_budget_frac or budget <= 0:
             return None

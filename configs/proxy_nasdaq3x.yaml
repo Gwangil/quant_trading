@@ -17,6 +17,7 @@ baskets:
   min_days_between_opens: 3
   min_budget_frac: 0.25
   budget_frac: null
+  budget_mode: equity
 entry:
   vol_window: 20
   dip_vol_mult: 0.25

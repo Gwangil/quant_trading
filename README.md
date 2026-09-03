@@ -25,8 +25,9 @@ pytest -q
 ## 사용법
 
 ```bash
-# 1) 백테스트 (번들 프록시 데이터: 네트워크 불필요)
-qtrade backtest -c configs/proxy_nasdaq3x.yaml -o reports
+# 1) 백테스트 (번들 데이터: 네트워크 불필요)
+qtrade backtest -c configs/soxl_hybrid.yaml -o reports        # 실제 SOXL 하이브리드 2001~2026
+qtrade backtest -c configs/proxy_nasdaq3x.yaml -o reports     # 나스닥×3 프록시 1999~2018
 
 # 2) 실제 SOXL/SOXX 로 백테스트 (yfinance 로 내려받아 data/cache 에 저장)
 qtrade backtest -c configs/soxl_basket.yaml -o reports
@@ -44,11 +45,13 @@ qtrade orders -c configs/soxl_basket.yaml -o reports/orders
 
 ```
 configs/            전략 설정(YAML)과 탐색 그리드
-  soxl_basket.yaml        실전 기본 설정 (SOXL / SOXX, yfinance)
+  soxl_basket.yaml        실전 기본 설정 (SOXL / SOXX, yfinance) — 균형형
+  soxl_aggressive.yaml    실전 공격형
+  soxl_hybrid*.yaml       번들 SOXL 하이브리드 스냅샷(invest_strategy 출처)으로 같은 설정 검증
   proxy_nasdaq3x.yaml     번들 데이터 프록시 (NASDAQ×3 합성, 1999~2018)
   proxy_semi3x_stress.yaml 반도체 스트레스 프록시 (NASDAQ×1.3 민감도 ×3)
   sweep_*.yaml            파라미터 그리드
-data/bundled/       오프라인 검증용 지수 일봉 (NASDAQ, SP500 1999-2018)
+data/bundled/       오프라인 검증용 일봉: SOXL/SOXX 하이브리드 2001-2026, NASDAQ/SP500 1999-2018
 data/cache/         yfinance 캐시 (git 제외)
 src/qtrade/
   config.py         설정 dataclass / YAML 로더 / 점 표기 오버라이드
@@ -64,6 +67,16 @@ tests/              pytest
 reports/            생성된 리포트
 docs/               설계 · 결과 · 운용 문서
 ```
+
+## 결과 요약 (실제 SOXL 하이브리드, 2002~2026, 복리)
+
+| 설정 | CAGR | MDD | OOS 2018~ CAGR / MDD | 2022년 |
+|---|---|---|---|---|
+| 균형형 | 15.3% | −33% | 26.9% / −18% | −4.7% |
+| 공격형 | 23.8% | −49% | 42.0% / −36% | −18% |
+| SOXL 보유 | 6.8% | −99.6% | 36.6% / −90.5% | −85.7% |
+
+자세한 표와 invest_strategy v5 와의 비교는 docs/02 §5.
 
 ## 주의
 

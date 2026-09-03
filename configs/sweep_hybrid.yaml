@@ -1,0 +1,16 @@
+# 실제 SOXL 하이브리드 스냅샷 기준 재탐색 (IS ~2017 / OOS 2018~)
+split: "2018-01-01"
+max_mdd: -0.45
+by: simple_annual
+grid:
+  baskets.count: [4]
+  baskets.slices: [4, 8]
+  entry.dip_vol_mult: [0.25]
+  exit.lot_tp_vol_mult: [0.5, 1.5, 3.0]
+  exit.lot_tp_sell_frac: [0.5, 1.0]
+  exit.basket_sl_pct: [null, 0.25]
+  exit.max_hold_days: [40, 60]
+  regime.bear_max_baskets: [0, 1]
+  regime.ma_band: [0.0, 0.02]
+  regime.cooldown_after_sl_days: [20]
+  costs.commission_pct: [0.001]

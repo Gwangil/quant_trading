@@ -1,16 +1,15 @@
-# 반도체 스트레스 프록시 × 공격형 설정.
-name: proxy_semi3x_stress_aggressive
+# 하이브리드 SOXL 스냅샷 × 공격형 설정 (슬라이스 4, 레짐 밴드 없음). MDD 가 큼.
+name: soxl_hybrid_aggressive
 initial_capital: 100000
 cash_yield_annual: 0.0
 data:
-  symbol: SEMI3X
-  reference: NASDAQ
+  symbol: SOXL
+  reference: SOXX
   source: bundled
-  synthetic:
-    leverage: 3
-    beta: 1.3
-    expense_ratio: 0.0095
-    financing_rate: 0.02
+  start: null
+  end: null
+  backfill: false
+  synthetic: null
 baskets:
   count: 4
   slices: 4
@@ -29,12 +28,12 @@ entry:
   max_slice_mult: 3.0
   target_vol: 0.045
 exit:
-  lot_tp_vol_mult: 3.0
+  lot_tp_vol_mult: 0.5
   min_lot_tp_pct: 0.03
   max_lot_tp_pct: 0.15
-  lot_tp_sell_frac: 0.5
+  lot_tp_sell_frac: 1.0
   basket_tp_pct: 0.2
-  basket_sl_pct: 0.25
+  basket_sl_pct: null
   max_hold_days: 60
   hard_max_hold_days: 120
   soft_exit_pnl_pct: 0.0
@@ -51,5 +50,5 @@ regime:
   cooldown_after_sl_days: 20
   max_vol_to_open: null
 costs:
-  commission_pct: 0.0007
+  commission_pct: 0.001
   slippage_pct: 0.0

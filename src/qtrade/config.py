@@ -38,6 +38,7 @@ class BasketConfig:
     min_days_between_opens: int = 3    # 바스켓 신규 오픈 간 최소 간격(거래일) → 진입 시점 분산
     min_budget_frac: float = 0.25      # 여유 현금이 정상 예산의 이 비율 미만이면 오픈하지 않음
     budget_frac: float | None = None   # 바스켓 예산 = 총자산 × budget_frac (None = 1/count). 합이 1을 넘으면 현금 한도로 제한
+    budget_mode: str = "equity"        # equity: 현재 총자산 기준(복리) | fixed: 초기자본 기준 고정(단리)
 
 
 @dataclass
