@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -55,6 +56,20 @@ def regime_flags(ref: pd.Series, ma: pd.Series, band: float) -> pd.Series:
     return pd.Series(out, index=ref.index)
 
 
+def cash_yield_daily(cfg: StrategyConfig, idx: pd.DatetimeIndex, bundled_dir: str | None = None) -> np.ndarray:
+    """일별 현금 수익률(스프레드 반영). 숫자면 고정, 'TBILL3M' 이면 번들 연평균 표."""
+    y = cfg.cash_yield_annual
+    if isinstance(y, str):
+        path = Path(bundled_dir or cfg.data.bundled_dir) / f"{y}_annual.csv"
+        tbl = pd.read_csv(path).set_index("year")["rate"]
+        years = pd.Index(idx.year)
+        rates = years.map(lambda yy: float(tbl.get(yy, tbl.iloc[-1] if yy > tbl.index.max() else tbl.iloc[0]))).to_numpy(dtype=float)
+    else:
+        rates = np.full(len(idx), float(y))
+    rates = np.maximum(rates + cfg.cash_yield_spread, 0.0)
+    return rates / TRADING_DAYS
+
+
 def _trading_start_index(cfg: StrategyConfig, df: pd.DataFrame) -> int:
     valid = df["vol"].notna() & df["bull"].notna()
     if not valid.any():
@@ -82,7 +97,7 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
     int_shares = cfg.costs.integer_shares
     n_skipped = 0
     n_fillable = 0
-    daily_yield = cfg.cash_yield_annual / TRADING_DAYS
+    daily_yield_arr = cash_yield_daily(cfg, idx)
 
     pending: list[Order] = []
     trades: list[dict] = []
@@ -175,9 +190,9 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
             if b.status == "liquidating" and not b.lots:
                 strat.close_basket(b, date, i, b.close_reason or "liquidated")
 
-        # ---- 3) 현금 이자 ----
-        if daily_yield:
-            cash *= 1 + daily_yield
+        # ---- 3) 현금 이자 (파킹 비율만큼) ----
+        if daily_yield_arr[i]:
+            cash *= 1 + daily_yield_arr[i] * cfg.cash_yield_fraction
 
         # ---- 4) 평가 ----
         invested = sum(b.market_value(px) for b in strat.active_baskets())

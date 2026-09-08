@@ -1,11 +1,27 @@
 # 03. 실전 운용 절차
 
+## 최초 1회: 데이터 준비
+
+```bash
+pip install -e ".[data,dev]"
+qtrade data update            # SOXL, SOXX 를 yfinance 로 받아 번들 스냅샷(2001~)과 이어붙여 data/cache/ 에 저장
+qtrade backtest -c configs/soxl_balanced.yaml -o reports/live   # 최신 데이터로 프로필 재확인 (docs/02 와 비교)
+```
+
+`qtrade data update` 는 미완성 당일 봉(미 동부 16:10 이전)과 OHLC 불변식 위반 봉을 걸러낸다 (auto_trade updater 와 같은 규칙).
+번들 구간은 이어붙이는 날의 종가 비율로 스케일하므로 수정주가가 바뀌어도 불연속이 생기지 않는다.
+
 ## 매일 루틴 (한국시간 기준, 미국 장 마감 후 아침)
 
 ```bash
-source .venv/bin/activate
-qtrade orders -c configs/soxl_balanced.yaml -o reports/orders   # 방어형은 soxl_defensive, 공격형은 soxl_aggressive
+qtrade data update
+qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper   # 방어형은 soxl_defensive, 공격형은 soxl_aggressive
 ```
+
+- 첫 줄에 `⚠ 데이터가 오래됨` 이 보이면 갱신이 안 된 것이다. 오래된 데이터로 만든 주문표는 쓰지 않는다.
+- `--env paper|real` 을 주면 auto_trade 주문서 규격(v1) JSON 이 함께 저장된다:
+  `reports/orders/orders_{env}_SOXL_soxl_balanced_{날짜}.json`. auto_trade 에서 `uv run auto-trade order execute --sheet <파일>` 로 집행한다
+  (모의투자는 LOC/MOC 를 지정가로 자동 대체, 실전은 LOC/MOC 그대로). `meta.env` 가 집행 환경과 다르면 집행기가 중단한다.
 
 출력 예:
 
@@ -37,6 +53,14 @@ symbol side type  limit  qty  basket   reason
   **현재 시점을 새 시작일로 잡고 `initial_capital` 을 현재 총자산으로 바꿔 새 라운드로 시작**하는 것이다.
 - 입출금이 있으면 같은 방식으로 `initial_capital` 을 갱신한다.
 - 주문 수량은 정수 주로 내림한다(`orders.py`). 소액 계좌는 슬라이스가 1주 미만이 될 수 있으니 `slices` 를 줄인다.
+
+## 페이퍼 트레이딩 절차 (실운용 전 30~60 거래일)
+
+1. 시작일을 정하고 `configs/soxl_balanced.yaml` 의 `data.start` 를 그 날짜로, `initial_capital` 을 모의 자본으로 바꾼다 (또는 `qtrade make-configs` 후 수정).
+2. 매일 아침 `qtrade data update` → `qtrade orders ... --env paper` → auto_trade 모의투자로 집행.
+3. 다음 날 실제 체결을 `reports/orders/fills.csv` 에 기록한다. 열: `date,symbol,side,qty,price,fee,tag`. 이 파일이 로드맵 D(체결 기반 상태 보정)의 입력이 된다.
+4. 주 1회 시뮬레이션 상태(`state_*.csv`)와 모의 계좌 잔고를 대조한다. 수량·평단 차이가 1% 를 넘으면 시작일·자본을 현재 값으로 재설정한다.
+5. 30 거래일 후 체결가 오차(지정가 대비 평균 슬리피지)와 미체결 비율을 집계해 `costs.slippage_pct` 에 반영한다.
 
 ## 점검 주기
 

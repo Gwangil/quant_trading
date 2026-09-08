@@ -106,7 +106,9 @@ class CostConfig:
 class StrategyConfig:
     name: str = "basket_loc"
     initial_capital: float = 100_000.0
-    cash_yield_annual: float = 0.0     # 대기 현금 수익률 (예: 단기채 ETF 파킹 시 0.04)
+    cash_yield_annual: float | str = 0.0   # 대기 현금 수익률: 숫자(고정) 또는 "TBILL3M"(번들 연평균 T-bill 표)
+    cash_yield_fraction: float = 1.0       # 파킹 비율 (예: 0.8 = 현금의 80% 만 단기채, 20% 는 결제·주문 여유)
+    cash_yield_spread: float = 0.0         # 파킹 상품 보수·스프레드 (예: −0.0015)
     data: DataConfig = field(default_factory=DataConfig)
     baskets: BasketConfig = field(default_factory=BasketConfig)
     entry: EntryConfig = field(default_factory=EntryConfig)

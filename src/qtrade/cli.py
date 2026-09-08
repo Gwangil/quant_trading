@@ -35,8 +35,15 @@ def _sweep(a):
 def _orders(a):
     from .orders import generate, render
     cfg = load_config(a.config)
-    orders, state, res = generate(cfg, a.out)
+    orders, state, res = generate(cfg, a.out, env=a.env)
     print(render(orders, state, res))
+
+
+def _data_update(a):
+    from .updater import update_symbol
+    for sym in a.symbols:
+        r = update_symbol(sym, a.cache_dir, a.bundled_dir)
+        print(f"{r['symbol']}: {r['rows']}행 {r['first']}~{r['last']} (yfinance {r['fresh_from']}~) -> {r['path']}")
 
 
 def _compare(a):
@@ -75,7 +82,15 @@ def main(argv=None):
     o = sp.add_parser("orders", help="다음 거래일 주문표 생성")
     o.add_argument("-c", "--config", required=True)
     o.add_argument("-o", "--out", default=None)
+    o.add_argument("--env", default=None, choices=["paper", "real"], help="auto_trade 주문서 JSON 도 저장 (집행 환경)")
     o.set_defaults(fn=_orders)
+    d = sp.add_parser("data", help="시세 데이터 관리")
+    dsp = d.add_subparsers(dest="data_cmd", required=True)
+    du = dsp.add_parser("update", help="yfinance 최신 일봉 + 번들 스냅샷 이어붙여 data/cache 에 저장")
+    du.add_argument("symbols", nargs="*", default=["SOXL", "SOXX"])
+    du.add_argument("--cache-dir", default="data/cache")
+    du.add_argument("--bundled-dir", default="data/bundled")
+    du.set_defaults(fn=_data_update)
     m = sp.add_parser("make-configs", help="프로필 정의(profiles.py)로부터 configs/*.yaml 재생성")
     m.add_argument("-o", "--out", default="configs")
     m.set_defaults(fn=_make_configs)

@@ -41,8 +41,15 @@ def state_table(res: BacktestResult) -> pd.DataFrame:
                                        "cash_avail", "pnl", "ret", "status"])
 
 
-def generate(cfg: StrategyConfig, out_dir: str | Path | None = None) -> tuple[pd.DataFrame, pd.DataFrame, BacktestResult]:
+def generate(cfg: StrategyConfig, out_dir: str | Path | None = None, env: str | None = None,
+             max_stale_days: int = 5) -> tuple[pd.DataFrame, pd.DataFrame, BacktestResult]:
+    """주문표 생성. env 를 주면 auto_trade 주문서 JSON 도 함께 저장한다."""
+    from .updater import staleness_days
     res = run_backtest(cfg)
+    stale = staleness_days(res.frame.index[-1])
+    if stale > max_stale_days:
+        print(f"⚠ 데이터가 오래됨: 마지막 종가 {res.frame.index[-1].date()} (확정 세션 기준 {stale}일 전). "
+              f"`qtrade data update` 로 갱신하세요.")
     orders = orders_table(res)
     state = state_table(res)
     if out_dir is not None:
@@ -50,6 +57,10 @@ def generate(cfg: StrategyConfig, out_dir: str | Path | None = None) -> tuple[pd
         tag = res.frame.index[-1].strftime("%Y%m%d")
         orders.to_csv(out / f"orders_{tag}.csv", index=False)
         state.to_csv(out / f"state_{tag}.csv", index=False)
+        if env:
+            from .sheet import build_sheet, save_sheet
+            path = save_sheet(build_sheet(res, env=env), out)
+            print(f"-> 주문서 JSON: {path}")
     return orders, state, res
 
 

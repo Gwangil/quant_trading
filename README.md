@@ -30,14 +30,15 @@ pytest -q
 qtrade backtest -c configs/soxl_balanced_hybrid.yaml -o reports   # 실제 SOXL 하이브리드 2001~2026
 qtrade backtest -c configs/nasdaq3x_balanced.yaml -o reports      # 나스닥×3 프록시 1999~2018
 
-# 2) 실제 SOXL/SOXX 최신 데이터로 백테스트 (yfinance 로 내려받아 data/cache 에 저장)
+# 2) 실제 SOXL/SOXX 최신 데이터로 백테스트 (yfinance + 번들 스냅샷 → data/cache)
+qtrade data update
 qtrade backtest -c configs/soxl_balanced.yaml -o reports
 
 # 3) 파라미터 탐색 (IS/OOS 분리)
 qtrade sweep -c configs/soxl_balanced_hybrid.yaml -g configs/sweeps/sweep_merge_fine.yaml -o reports/sweeps --top 20
 
-# 4) 다음 거래일 주문표
-qtrade orders -c configs/soxl_balanced.yaml -o reports/orders
+# 4) 다음 거래일 주문표 (+ auto_trade 주문서 JSON, 모의투자용)
+qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper
 
 # 5) 프로필 정의(src/qtrade/profiles.py)를 바꾼 뒤 설정 파일 재생성
 qtrade make-configs
@@ -71,6 +72,8 @@ src/qtrade/
   metrics.py        단리/CAGR/MDD/회복기간/연도별 수익률
   report.py         마크다운 + 차트 리포트
   sweep.py          그리드 탐색 (멀티프로세스, 학습/검증 분리)
+  updater.py        시세 갱신 (yfinance + 번들 스냅샷 splice, 미완성 봉 필터)
+  sheet.py          auto_trade 주문서 규격 v1 JSON 내보내기
   orders.py         실전 주문표 생성 (전 구간 재현 방식)
   cli.py            qtrade 명령
 tests/              pytest
@@ -78,13 +81,13 @@ reports/            생성된 리포트
 docs/               설계 · 결과 · 운용 문서
 ```
 
-## 결과 요약 (실제 SOXL 하이브리드 2002~2026, 복리, 수수료 0.1%)
+## 결과 요약 (실제 SOXL 하이브리드 2002~2026, 복리, 수수료 0.1%, 현금 80% 단기채 파킹)
 
 | 프로필 | CAGR | MDD | MDD 회복 | 최악의 달 | OOS 2018~ CAGR / MDD | 2022년 |
 |---|---|---|---|---|---|---|
-| 방어형 | 10.1% | −26% | 378일 | −15% | 17.3% / −15% | −4% |
-| 균형형 (기본) | 15.7% | −36% | 411일 | −22% | 28.7% / −19% | −5% |
-| 공격형 | 20.1% | −43% | 441일 | −34% | 36.4% / −37% | −13% |
+| 방어형 | 11.4% | −26% | 375일 | −15% | 19.4% / −15% | −4% |
+| 균형형 (기본) | 16.9% | −36% | 409일 | −21% | 30.8% / −19% | −5% |
+| 공격형 | 21.2% | −43% | 441일 | −34% | 38.5% / −36% | −13% |
 | SOXL 보유 | 6.8% | −99.6% | 4,397일 | | 36.6% / −90.5% | −86% |
 
 복리 프레임에서 방어형은 영감이 된 v5 전략(예산 복리화)을 모든 지표에서 앞선다. 단리(이익 인출) 프레임에서는 v5 가 MDD/자본에서 앞선다 (docs/02 §5).

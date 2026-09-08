@@ -77,7 +77,7 @@ def render_markdown(res: BacktestResult, m: dict | None = None, title: str | Non
               f"- v5 결합: 상승일 부분매도 {cfg.exit.upday_sell_frac:.0%}, 서킷브레이커 {('-' + format(cfg.regime.breaker_dd, '.0%') + ' / ' + str(cfg.regime.breaker_resume_sma) + '일선 복귀') if cfg.regime.breaker_dd else '없음'}",
               f"- 리스크 레이어: 변동성 타게팅 {('연 ' + format(cfg.risk.vol_target_annual, '.0%')) if cfg.risk.vol_target_annual else '없음'}, 노출 상한 {cfg.risk.max_exposure:.0%}, "
               f"낙폭 연동 축소 {(format(cfg.risk.dd_scale_start, '.0%') + '→' + format(cfg.risk.dd_scale_floor, '.0%') + ' 에서 ×' + str(cfg.risk.dd_scale_min_mult)) if cfg.risk.dd_scale_start is not None else '없음'}",
-              f"- 비용: 수수료 {cfg.costs.commission_pct:.2%}/편도, 현금수익률 {cfg.cash_yield_annual:.1%}", ""]
+              f"- 비용: 수수료 {cfg.costs.commission_pct:.2%}/편도, 현금 파킹 {cfg.cash_yield_annual if isinstance(cfg.cash_yield_annual, str) else format(cfg.cash_yield_annual, '.1%')} × {cfg.cash_yield_fraction:.0%}", ""]
     return "\n".join(lines)
 
 

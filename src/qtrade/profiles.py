@@ -9,7 +9,10 @@ from .config import StrategyConfig, config_from_dict
 # 세 프로필이 공유하는 코어 규칙 (실데이터 탐색에서 안정적으로 우위였던 값)
 CORE = {
     "initial_capital": 100_000,
-    "cash_yield_annual": 0.0,
+    # 현금 파킹: 대기 현금의 80% 를 단기채 ETF(SGOV/BIL 류)에 두는 가정. 수익률은 번들 3개월 T-bill 연평균 표, 보수 0.15%
+    "cash_yield_annual": "TBILL3M",
+    "cash_yield_fraction": 0.8,
+    "cash_yield_spread": -0.0015,
     "baskets": {"count": 4, "slices": 6, "min_days_between_opens": 3, "min_budget_frac": 0.25,
                 "budget_frac": None, "budget_mode": "equity"},
     "entry": {"vol_window": 20, "dip_vol_mult": 0.25, "min_dip_pct": 0.0, "max_dip_pct": 0.06,
@@ -41,8 +44,8 @@ PROFILE_DESC = {
 }
 
 DATA = {
-    "live": {"symbol": "SOXL", "reference": "SOXX", "source": "yfinance", "start": "2011-01-03", "end": None,
-             "backfill": False, "synthetic": None},
+    "live": {"symbol": "SOXL", "reference": "SOXX", "source": "csv", "start": "2011-01-03", "end": None,
+             "backfill": False, "synthetic": None},   # data/cache/*.csv ← `qtrade data update`
     "hybrid": {"symbol": "SOXL", "reference": "SOXX", "source": "bundled", "start": None, "end": None,
                "backfill": False, "synthetic": None},
     "proxy": {"symbol": "NASDAQ3X", "reference": "NASDAQ", "source": "bundled", "start": None, "end": None,
