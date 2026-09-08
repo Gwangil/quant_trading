@@ -60,7 +60,7 @@ def test_engine_invariants_and_loc_semantics():
     # 종료된 바스켓은 사유가 있어야 함
     closed = res.baskets[res.baskets.status == "closed"]
     assert closed["reason"].notna().all()
-    assert set(closed["reason"]).issubset({"basket_tp", "basket_sl", "time_soft", "time_hard", "regime_bear"})
+    assert set(closed["reason"]).issubset({"basket_tp", "basket_sl", "time_soft", "time_hard", "regime_bear", "breaker"})
 
 
 def test_bear_regime_limits_baskets():
@@ -114,3 +114,36 @@ def test_regime_hysteresis_reduces_flips():
     f2 = regime_flags(ref, ma, 0.03).dropna()
     assert (f0.diff().abs().sum()) >= (f2.diff().abs().sum())
     assert set(f2.unique()).issubset({0.0, 1.0})
+
+
+def test_upday_sell_fills_only_on_up_days_and_reduces_shares():
+    data = make_data(seed=7)
+    cfg = base_cfg(**{"exit.upday_sell_frac": 0.2, "exit.lot_tp_vol_mult": 5.0, "exit.max_lot_tp_pct": 0.5})
+    res = run_backtest(cfg, data)
+    t = res.trades[res.trades.reason == "upday_sell"]
+    assert len(t) > 0
+    f = res.frame
+    prev = f["close"].shift(1)
+    for _, r in t.iterrows():
+        assert f.loc[r.date, "close"] >= prev.loc[r.date] * (1 - 1e-9)
+    np.testing.assert_allclose(f["equity"], f["cash"] + f["invested"])
+
+
+def test_breaker_halts_and_liquidates():
+    idx = pd.bdate_range("2015-01-01", periods=700)
+    # 완만한 상승 후 급락 → 서킷브레이커 발동 → 회복
+    path = np.concatenate([np.linspace(100, 130, 300), np.linspace(130, 40, 100), np.linspace(40, 200, 300)])
+    data = pd.DataFrame({"close": path, "ref_close": path}, index=idx)
+    cfg = base_cfg(**{"regime.enabled": False, "regime.breaker_dd": 0.15, "regime.breaker_resume_sma": 50,
+                      "exit.basket_sl_pct": None, "exit.hard_max_hold_days": 100000, "exit.max_hold_days": 100000,
+                      "exit.basket_tp_pct": 9.0, "exit.lot_tp_vol_mult": 100.0, "exit.max_lot_tp_pct": 9.0})
+    res = run_backtest(cfg, data)
+    f = res.frame
+    assert f["halted"].any()
+    # 중단 구간에는 보유가 0 으로 수렴하고 신규 매수가 없다
+    halted_days = f.index[f["halted"]]
+    buys = res.trades[(res.trades.side == "BUY") & (res.trades.date.isin(halted_days[1:]))]
+    assert len(buys) == 0
+    assert "breaker" in set(res.baskets["reason"].dropna())
+    # 해제 후 다시 바스켓을 연다 (단조 상승 경로라 LOC 매수 체결은 없을 수 있음)
+    assert (pd.to_datetime(res.baskets["opened"]) > halted_days[-1]).any()

@@ -60,6 +60,8 @@ class ExitConfig:
     min_lot_tp_pct: float = 0.03
     max_lot_tp_pct: float = 0.15
     lot_tp_sell_frac: float = 1.0      # 로트 익절 시 매도 비율 (0.5 = 절반만 팔고 나머지는 바스켓 청산까지 보유)
+    upday_sell_frac: float = 0.0       # 상승 마감일마다 보유수량의 이 비율을 매도 (LOC 지정가 = 전일종가). invest_strategy v5 의 부분매도
+    upday_min_rise: float = 0.0        # 상승일 판정 최소 상승률 (LOC 지정가 = 전일종가 × (1 + 이 값))
     basket_tp_pct: float = 0.10        # 바스켓 수익률(예산 대비) 목표 → 전량 청산(MOC)
     basket_sl_pct: float | None = 0.35 # 바스켓 손실률 한도 → 전량 청산 (None=미사용)
     max_hold_days: int = 60            # 보유기간 초과 시, 손익 ≥ soft_exit_pnl_pct 이면 청산
@@ -79,6 +81,8 @@ class RegimeConfig:
     portfolio_dd_brake: float | None = None   # 전략 자산이 고점 대비 이만큼 빠지면 약세로 강제 (예: 0.25)
     portfolio_dd_brake_days: int = 40         # 브레이크 지속 거래일 (이후 해제, 새 저점 갱신 시 재발동)
     cooldown_after_sl_days: int = 0           # 바스켓 손절 후 이 기간 동안 신규 바스켓 오픈 금지
+    breaker_dd: float | None = None           # 계좌 서킷브레이커: 총자산이 고점 대비 이 비율 이상 빠지면 전량 청산·매매 중단 (예: 0.15)
+    breaker_resume_sma: int = 200             # 중단 해제: 매매 대상 종가가 이 이동평균 위로 복귀하면 재개 (고점은 현재 자산으로 리셋)
     max_vol_to_open: float | None = None      # 일변동성이 이 값 초과면 신규 바스켓 오픈 금지 (예: 0.06)
 
 

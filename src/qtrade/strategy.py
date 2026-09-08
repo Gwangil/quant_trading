@@ -180,12 +180,24 @@ class BasketStrategy:
 
     # ---- 일간 주문 생성 (idx 일 종가 정보로 idx+1 일 종가 주문) ----
     def generate_orders(self, idx: int, date: pd.Timestamp, price: float, vol: float,
-                        bull: bool, equity: float, idle_cash: float) -> tuple[list[Order], float]:
-        """반환: (주문 리스트, 즉시 청산된 바스켓의 반환 현금 합계)."""
+                        bull: bool, equity: float, idle_cash: float, halt: bool = False) -> tuple[list[Order], float]:
+        """반환: (주문 리스트, 즉시 청산된 바스켓의 반환 현금 합계). halt=True 면 전량 청산·신규 중단."""
         orders: list[Order] = []
         returned = 0.0
         cfg = self.cfg
         self._vol = float(vol) if vol == vol else 0.0
+
+        if halt:
+            for b in self.active_baskets():
+                if b.lots:
+                    if b.status != "liquidating":
+                        b.status = "liquidating"
+                        b.close_reason = "breaker"
+                        orders.append(Order(b.id, "SELL", "MOC", b.shares(), None, "breaker"))
+                else:
+                    returned += self.close_basket(b, date, idx, "breaker")
+            self._last_sl_idx = idx
+            return orders, returned
 
         # 0) 약세 전환 시 초과 바스켓 청산 (수익률 낮은 순)
         forced: set[int] = set()
@@ -222,6 +234,11 @@ class BasketStrategy:
             for lim, ls in sorted(groups.items()):
                 orders.append(Order(b.id, "SELL", "LOC", sum(l.qty for l in ls) * frac, lim, "lot_tp",
                                     lot_costs=tuple(l.cost for l in ls)))
+
+            # 상승일 부분매도 LOC (전일종가 이상 마감 시 보유수량 일부 매도, 로트 비례 배분)
+            if cfg.exit.upday_sell_frac > 0 and b.lots:
+                lim = round(price * (1.0 + cfg.exit.upday_min_rise), 4)
+                orders.append(Order(b.id, "SELL", "LOC", b.shares() * cfg.exit.upday_sell_frac, lim, "upday_sell"))
 
             # 슬라이스 매수 LOC
             if cfg.regime.enabled and not bull and cfg.regime.bear_no_new_lots:

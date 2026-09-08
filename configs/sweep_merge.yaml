@@ -1,0 +1,20 @@
+# 5차 탐색: v5 요소(상승일 부분매도, 계좌 서킷브레이커) 결합. 실제 SOXL 하이브리드, IS ~2017 / OOS 2018~
+split: "2018-01-01"
+max_mdd: -0.45
+by: simple_annual
+grid:
+  baskets.count: [4]
+  baskets.slices: [4, 8]
+  entry.dip_vol_mult: [0.25]
+  exit.lot_tp_vol_mult: [0.5, 1.0]
+  exit.lot_tp_sell_frac: [1.0]
+  exit.upday_sell_frac: [0.0, 0.2, 0.5]
+  exit.basket_sl_pct: [null]
+  exit.basket_tp_pct: [0.10, 0.20]
+  exit.max_hold_days: [40, 60]
+  regime.enabled: [true, false]
+  regime.bear_max_baskets: [1]
+  regime.ma_band: [0.02]
+  regime.cooldown_after_sl_days: [20]
+  regime.breaker_dd: [null, 0.15, 0.25]
+  costs.commission_pct: [0.001]

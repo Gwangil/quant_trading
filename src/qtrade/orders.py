@@ -56,8 +56,10 @@ def generate(cfg: StrategyConfig, out_dir: str | Path | None = None) -> tuple[pd
 def render(orders: pd.DataFrame, state: pd.DataFrame, res: BacktestResult) -> str:
     f = res.frame
     last = f.index[-1].date()
+    halted = bool(f["halted"].iloc[-1]) if "halted" in f else False
     lines = [f"기준일(마지막 종가): {last}  종가 {f['close'].iloc[-1]:.2f}  "
-             f"레짐: {'강세' if bool(f['bull'].iloc[-1]) else '약세'}  일변동성 {f['vol'].iloc[-1]:.2%}",
+             f"레짐: {'강세' if bool(f['bull'].iloc[-1]) else '약세'}  일변동성 {f['vol'].iloc[-1]:.2%}"
+             + ("  ⚠ 서킷브레이커 발동 중(매매 중단)" if halted else ""),
              f"총자산 {res.equity.iloc[-1]:,.2f}  현금 {res.final_cash:,.2f}  활성 바스켓 {int(f['n_active'].iloc[-1])}",
              "", "## 다음 거래일 주문 (종가 주문)",
              orders.to_string(index=False) if len(orders) else "(주문 없음)",

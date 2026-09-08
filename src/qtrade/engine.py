@@ -29,6 +29,7 @@ def prepare_frame(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> pd.D
     df["vol"] = realized_vol(df["close"], cfg.entry.vol_window)
     ma = sma(df["ref_close"], cfg.regime.ma_window)
     df["bull"] = regime_flags(df["ref_close"], ma, cfg.regime.ma_band)
+    df["sym_sma"] = sma(df["close"], cfg.regime.breaker_resume_sma)
     return df
 
 
@@ -84,6 +85,10 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
     brake_until = -1            # 브레이크 해제 인덱스
     brake_low = float("inf")    # 브레이크 발동 시점 자산 (재발동은 새 저점에서만)
     brake = cfg.regime.portfolio_dd_brake if cfg.regime.enabled else None
+    breaker = cfg.regime.breaker_dd
+    halted = False
+    bk_peak = float(cfg.initial_capital)
+    sym_sma = df["sym_sma"].values.astype(float)
     rows: list[dict] = []
     baskets_by_id: dict[int, Basket] = {}
 
@@ -122,10 +127,14 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                 if o.kind == "MOC":
                     lots = list(b.lots)
                     frac = 1.0
+                elif o.reason == "upday_sell":
+                    lots = list(b.lots)
+                    sh = sum(l.qty for l in lots)
+                    frac = min(o.qty / sh, 1.0) if sh > 0 else 0.0
                 else:
                     lots = [l for l in b.lots if l.cost in o.lot_costs and not l.tp_done]
                     frac = cfg.exit.lot_tp_sell_frac
-                if not lots:
+                if not lots or frac <= 0:
                     continue
                 qty = sum(l.qty for l in lots) * frac
                 cost = sum(l.qty * l.cost for l in lots) * frac
@@ -139,7 +148,10 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                         b.lots.remove(l)
                     else:
                         l.qty *= (1.0 - frac)
-                        l.tp_done = True
+                        if o.reason == "lot_tp":
+                            l.tp_done = True
+                        if l.qty < 1e-9:
+                            b.lots.remove(l)
                 trades.append(dict(date=date, basket=b.id, side="SELL", kind=o.kind, qty=qty, price=fill_px,
                                    value=qty * fill_px, fee=fee, pnl=proceeds - cost, reason=o.reason))
         pending = []
@@ -168,12 +180,22 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                 brake_low = equity
             if i <= brake_until:
                 bull = False
-        rows.append(dict(date=date, close=px, ref_close=df["ref_close"].iat[i], vol=vol[i], bull=bull,
+        if breaker:
+            if not halted:
+                bk_peak = max(bk_peak, equity)
+                if equity <= bk_peak * (1.0 - breaker):
+                    halted = True
+            elif not np.isnan(sym_sma[i]) and px > sym_sma[i]:
+                halted = False
+                bk_peak = equity
+            if halted:
+                bull = False
+        rows.append(dict(date=date, close=px, ref_close=df["ref_close"].iat[i], vol=vol[i], bull=bull, halted=halted,
                          cash=cash, invested=invested, equity=equity, n_active=n_active,
                          exposure=invested / equity if equity > 0 else 0.0))
 
         # ---- 5) 내일 주문 생성 ----
-        pending, returned = strat.generate_orders(i, date, px, vol[i], bull, equity, idle_cash)
+        pending, returned = strat.generate_orders(i, date, px, vol[i], bull, equity, idle_cash, halt=halted)
 
     frame = pd.DataFrame(rows).set_index("date")
     eq = frame["equity"].rename("equity")
