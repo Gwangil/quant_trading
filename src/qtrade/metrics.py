@@ -81,6 +81,14 @@ def compute_metrics(equity: pd.Series, exposure: pd.Series | None = None,
         "avg_recover_days_10pct": float(eps.loc[eps["recovered"], "days_to_recover"].mean()) if len(eps) and eps["recovered"].any() else np.nan,
         "yearly_returns": {str(k.year): float(v) for k, v in yearly.items()},
     }
+    monthly = eq.resample("ME").last().pct_change().dropna()
+    m["ulcer_index"] = float(np.sqrt((dd ** 2).mean()))          # 낙폭 제곱평균의 제곱근 (낙폭 깊이×기간)
+    m["worst_month"] = float(monthly.min()) if len(monthly) else np.nan
+    m["pct_months_positive"] = float((monthly > 0).mean()) if len(monthly) else np.nan
+    m["pct_days_dd_gt10"] = float((dd <= -0.10).mean())
+    m["pct_days_dd_gt20"] = float((dd <= -0.20).mean())
+    neg = (monthly < 0).astype(int)
+    m["max_losing_months_streak"] = int((neg.groupby((neg == 0).cumsum()).cumsum()).max()) if len(monthly) else 0
     if exposure is not None:
         m["avg_exposure"] = float(exposure.mean())
     if baskets is not None and len(baskets):

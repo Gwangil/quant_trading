@@ -39,6 +39,12 @@ def _orders(a):
     print(render(orders, state, res))
 
 
+def _make_configs(a):
+    from .profiles import write_all
+    for w in write_all(a.out):
+        print("wrote", w)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="qtrade", description="분할 바스켓 LOC 전략")
     sp = p.add_subparsers(dest="cmd", required=True)
@@ -62,6 +68,9 @@ def main(argv=None):
     o.add_argument("-c", "--config", required=True)
     o.add_argument("-o", "--out", default=None)
     o.set_defaults(fn=_orders)
+    m = sp.add_parser("make-configs", help="프로필 정의(profiles.py)로부터 configs/*.yaml 재생성")
+    m.add_argument("-o", "--out", default="configs")
+    m.set_defaults(fn=_make_configs)
     a = p.parse_args(argv)
     a.fn(a)
 

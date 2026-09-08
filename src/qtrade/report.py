@@ -60,7 +60,10 @@ def render_markdown(res: BacktestResult, m: dict | None = None, title: str | Non
               f"종료 바스켓 {m.get('n_baskets_closed', 0)}개 (승률 {fmt_pct(m.get('basket_win_rate'))}, "
               f"평균 수익률 {fmt_pct(m.get('basket_avg_ret'))}, 평균 보유 {m.get('basket_avg_hold_days', float('nan')):.0f}일)",
               f"- 바스켓 종료 사유: {m.get('basket_exit_reasons', {})}",
-              f"- 10% 이상 낙폭 에피소드 {m.get('n_dd_episodes_10pct')}회, 평균 회복 {m.get('avg_recover_days_10pct', float('nan')):.0f}일", ""]
+              f"- 10% 이상 낙폭 에피소드 {m.get('n_dd_episodes_10pct')}회, 평균 회복 {m.get('avg_recover_days_10pct', float('nan')):.0f}일",
+              f"- 운용자 심리 지표: Ulcer {m.get('ulcer_index', float('nan')):.3f}, 최악의 달 {fmt_pct(m.get('worst_month'))}, "
+              f"양(+)의 달 비율 {fmt_pct(m.get('pct_months_positive'))}, 최장 연속 손실 {m.get('max_losing_months_streak')}개월, "
+              f"낙폭 10%/20% 초과 체류일 비율 {fmt_pct(m.get('pct_days_dd_gt10'))}/{fmt_pct(m.get('pct_days_dd_gt20'))}", ""]
     yr = m["yearly_returns"]; yb = m["benchmark_symbol"]["yearly_returns"]; yr2 = m["benchmark_reference"]["yearly_returns"]
     lines += ["## 연도별 수익률", "| 연도 | 전략 | " + sym + " | " + ref + " |", "|---|---|---|---|"]
     for y in yr:
@@ -71,6 +74,9 @@ def render_markdown(res: BacktestResult, m: dict | None = None, title: str | Non
               f"- 로트 익절: 매입가 × (1 + clamp({cfg.exit.lot_tp_vol_mult}×σ, {cfg.exit.min_lot_tp_pct:.0%}, {cfg.exit.max_lot_tp_pct:.0%}))",
               f"- 바스켓 청산: 목표 +{cfg.exit.basket_tp_pct:.0%} / 손절 {('-' + format(cfg.exit.basket_sl_pct, '.0%')) if cfg.exit.basket_sl_pct is not None else '없음'} / 보유 {cfg.exit.max_hold_days}일(손익≥{cfg.exit.soft_exit_pnl_pct:.0%}) / 강제 {cfg.exit.hard_max_hold_days}일",
               f"- 레짐: {'ON' if cfg.regime.enabled else 'OFF'} (기준지수 {cfg.regime.ma_window}일선, 약세장 바스켓 {cfg.regime.bear_max_baskets}개, 슬라이스 ×{cfg.regime.bear_slice_mult}, 신규매수중단={cfg.regime.bear_no_new_lots})",
+              f"- v5 결합: 상승일 부분매도 {cfg.exit.upday_sell_frac:.0%}, 서킷브레이커 {('-' + format(cfg.regime.breaker_dd, '.0%') + ' / ' + str(cfg.regime.breaker_resume_sma) + '일선 복귀') if cfg.regime.breaker_dd else '없음'}",
+              f"- 리스크 레이어: 변동성 타게팅 {('연 ' + format(cfg.risk.vol_target_annual, '.0%')) if cfg.risk.vol_target_annual else '없음'}, 노출 상한 {cfg.risk.max_exposure:.0%}, "
+              f"낙폭 연동 축소 {(format(cfg.risk.dd_scale_start, '.0%') + '→' + format(cfg.risk.dd_scale_floor, '.0%') + ' 에서 ×' + str(cfg.risk.dd_scale_min_mult)) if cfg.risk.dd_scale_start is not None else '없음'}",
               f"- 비용: 수수료 {cfg.costs.commission_pct:.2%}/편도, 현금수익률 {cfg.cash_yield_annual:.1%}", ""]
     return "\n".join(lines)
 

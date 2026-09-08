@@ -81,12 +81,10 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
 
     pending: list[Order] = []
     trades: list[dict] = []
-    peak_equity = float(cfg.initial_capital)
-    brake_until = -1            # 브레이크 해제 인덱스
-    brake_low = float("inf")    # 브레이크 발동 시점 자산 (재발동은 새 저점에서만)
-    brake = cfg.regime.portfolio_dd_brake if cfg.regime.enabled else None
     breaker = cfg.regime.breaker_dd
     halted = False
+    rk = cfg.risk
+    risk_peak = float(cfg.initial_capital)
     bk_peak = float(cfg.initial_capital)
     sym_sma = df["sym_sma"].values.astype(float)
     rows: list[dict] = []
@@ -171,15 +169,6 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
         idle_cash = cash - strat.reserved_cash()
         n_active = len(strat.active_baskets())
         bull = bool(bull_arr[i])
-        if brake:
-            if equity > peak_equity:
-                peak_equity, brake_low = equity, float("inf")
-            dd = equity / peak_equity - 1.0
-            if dd <= -brake and i > brake_until and equity < brake_low:
-                brake_until = i + cfg.regime.portfolio_dd_brake_days
-                brake_low = equity
-            if i <= brake_until:
-                bull = False
         if breaker:
             if not halted:
                 bk_peak = max(bk_peak, equity)
@@ -190,12 +179,25 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                 bk_peak = equity
             if halted:
                 bull = False
+        # ---- 노출 상한(변동성 타게팅) / 낙폭 연동 축소 ----
+        exposure_cap = rk.max_exposure
+        if rk.vol_target_annual and vol[i] == vol[i] and vol[i] > 0:
+            exposure_cap = min(exposure_cap, rk.vol_target_annual / (vol[i] * np.sqrt(TRADING_DAYS)))
+        size_mult = 1.0
+        risk_peak = max(risk_peak, equity)
+        if rk.dd_scale_start is not None:
+            dd_now = 1.0 - equity / risk_peak
+            if dd_now > rk.dd_scale_start:
+                t = min(1.0, (dd_now - rk.dd_scale_start) / max(rk.dd_scale_floor - rk.dd_scale_start, 1e-9))
+                size_mult = 1.0 - (1.0 - rk.dd_scale_min_mult) * t
         rows.append(dict(date=date, close=px, ref_close=df["ref_close"].iat[i], vol=vol[i], bull=bull, halted=halted,
+                         exposure_cap=exposure_cap, size_mult=size_mult,
                          cash=cash, invested=invested, equity=equity, n_active=n_active,
                          exposure=invested / equity if equity > 0 else 0.0))
 
         # ---- 5) 내일 주문 생성 ----
-        pending, returned = strat.generate_orders(i, date, px, vol[i], bull, equity, idle_cash, halt=halted)
+        pending, returned = strat.generate_orders(i, date, px, vol[i], bull, equity, idle_cash, halt=halted,
+                                                  exposure_cap=exposure_cap, size_mult=size_mult, invested=invested)
 
     frame = pd.DataFrame(rows).set_index("date")
     eq = frame["equity"].rename("equity")

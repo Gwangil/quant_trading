@@ -180,12 +180,17 @@ class BasketStrategy:
 
     # ---- 일간 주문 생성 (idx 일 종가 정보로 idx+1 일 종가 주문) ----
     def generate_orders(self, idx: int, date: pd.Timestamp, price: float, vol: float,
-                        bull: bool, equity: float, idle_cash: float, halt: bool = False) -> tuple[list[Order], float]:
-        """반환: (주문 리스트, 즉시 청산된 바스켓의 반환 현금 합계). halt=True 면 전량 청산·신규 중단."""
+                        bull: bool, equity: float, idle_cash: float, halt: bool = False,
+                        exposure_cap: float = 1.0, size_mult: float = 1.0, invested: float = 0.0) -> tuple[list[Order], float]:
+        """반환: (주문 리스트, 즉시 청산된 바스켓의 반환 현금 합계). halt=True 면 전량 청산·신규 중단.
+
+        exposure_cap: 총자산 대비 투자비중 상한 (변동성 타게팅), size_mult: 매수 규모 배수 (낙폭 연동 축소).
+        """
         orders: list[Order] = []
         returned = 0.0
         cfg = self.cfg
         self._vol = float(vol) if vol == vol else 0.0
+        room = max(0.0, equity * exposure_cap - invested)   # 오늘 추가 매수 가능한 총액
 
         if halt:
             for b in self.active_baskets():
@@ -244,14 +249,16 @@ class BasketStrategy:
             if cfg.regime.enabled and not bull and cfg.regime.bear_no_new_lots:
                 continue
             slice_val = b.budget / cfg.baskets.slices
-            mult = self.slice_mult(b, price, bull)
+            mult = self.slice_mult(b, price, bull) * size_mult
             avail = b.cash_avail()
             amt = min(slice_val * mult, avail)
-            if amt < slice_val * 0.25:   # 잔여 현금이 너무 작으면 생략
-                continue
             first = not b.lots and b.n_buys == 0
             if first:
                 amt = min(slice_val * mult * cfg.entry.first_slice_mult, avail)
+            amt = min(amt, room)
+            if amt < slice_val * 0.25:   # 잔여 현금/노출 여유가 너무 작으면 생략
+                continue
+            room -= amt
             dip = self.dip_pct(vol, first)
             lim = round(price * (1.0 - dip), 4)
             if lim <= 0:
@@ -260,13 +267,14 @@ class BasketStrategy:
 
         # 2) 신규 바스켓 오픈 (오픈 즉시 첫 슬라이스 주문)
         idle_cash += returned
-        nb = self.maybe_open_basket(idx, date, equity, idle_cash, bull, vol)
+        nb = self.maybe_open_basket(idx, date, equity * size_mult, idle_cash, bull, vol) if room > 0 else None
         if nb is not None:
             if not (cfg.regime.enabled and not bull and cfg.regime.bear_no_new_lots):
                 slice_val = nb.budget / cfg.baskets.slices
                 mult = self.slice_mult(nb, price, bull) * cfg.entry.first_slice_mult
                 dip = self.dip_pct(vol, True)
                 lim = round(price * (1.0 - dip), 4)
-                orders.append(Order(nb.id, "BUY", "LOC", min(slice_val * mult, nb.cash_avail()) / lim, lim,
-                                    "first_slice"))
+                amt = min(slice_val * mult, nb.cash_avail(), room)
+                if amt > 0:
+                    orders.append(Order(nb.id, "BUY", "LOC", amt / lim, lim, "first_slice"))
         return orders, returned

@@ -1,22 +1,22 @@
 # 자동 생성 (qtrade make-configs). 수정은 src/qtrade/profiles.py 에서.
-# 공격형: 슬라이스 4(빠른 투입) + 계좌 서킷브레이커 −25%. 수익 우선, MDD −40%대 감수
-# 데이터: live (SOXL/SOXX, yfinance)
-name: soxl_aggressive
+# 균형형(기본): 상승일 부분매도 10%, 노출상한 없음
+# 데이터: hybrid (SOXL/SOXX, bundled)
+name: soxl_balanced_hybrid
 initial_capital: 100000
 cash_yield_annual: 0.0
 data:
   symbol: SOXL
   reference: SOXX
-  source: yfinance
+  source: bundled
   cache_dir: data/cache
   bundled_dir: data/bundled
-  start: '2011-01-03'
+  start: null
   end: null
   synthetic: null
   backfill: false
 baskets:
   count: 4
-  slices: 4
+  slices: 6
   min_days_between_opens: 3
   min_budget_frac: 0.25
   budget_frac: null
@@ -52,7 +52,7 @@ regime:
   bear_no_new_lots: false
   bear_liquidate: true
   cooldown_after_sl_days: 20
-  breaker_dd: 0.25
+  breaker_dd: null
   breaker_resume_sma: 200
   max_vol_to_open: null
 risk:

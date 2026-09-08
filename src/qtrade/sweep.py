@@ -13,7 +13,7 @@ from .engine import run_backtest, prepare_frame
 from .metrics import compute_metrics
 
 _METRIC_KEYS = ["simple_annual", "cagr", "mdd", "mdd_recover_days", "max_underwater_days", "sharpe",
-                "calmar", "worst_year", "avg_exposure", "n_baskets_closed", "basket_win_rate", "n_trades"]
+                "calmar", "worst_year", "worst_month", "ulcer_index", "pct_days_dd_gt20", "avg_exposure", "n_baskets_closed", "basket_win_rate", "n_trades"]
 
 _DATA: pd.DataFrame | None = None
 

@@ -78,12 +78,20 @@ class RegimeConfig:
     bear_slice_mult: float = 0.5       # 약세장 슬라이스 크기 배수
     bear_no_new_lots: bool = False     # 약세장에서는 신규 매수 자체를 중단
     bear_liquidate: bool = False       # 약세 전환 시 bear_max_baskets 초과분(수익률 낮은 순)을 청산
-    portfolio_dd_brake: float | None = None   # 전략 자산이 고점 대비 이만큼 빠지면 약세로 강제 (예: 0.25)
-    portfolio_dd_brake_days: int = 40         # 브레이크 지속 거래일 (이후 해제, 새 저점 갱신 시 재발동)
     cooldown_after_sl_days: int = 0           # 바스켓 손절 후 이 기간 동안 신규 바스켓 오픈 금지
     breaker_dd: float | None = None           # 계좌 서킷브레이커: 총자산이 고점 대비 이 비율 이상 빠지면 전량 청산·매매 중단 (예: 0.15)
     breaker_resume_sma: int = 200             # 중단 해제: 매매 대상 종가가 이 이동평균 위로 복귀하면 재개 (고점은 현재 자산으로 리셋)
     max_vol_to_open: float | None = None      # 일변동성이 이 값 초과면 신규 바스켓 오픈 금지 (예: 0.06)
+
+
+@dataclass
+class RiskConfig:
+    """포트폴리오 단위 노출 관리 (심리적 방어 레이어)."""
+    vol_target_annual: float | None = None   # 노출 상한 = min(1, 목표연변동성 / 매매대상 실현연변동성). 예: 0.35
+    max_exposure: float = 1.0                # 총자산 대비 투자비중 절대 상한
+    dd_scale_start: float | None = None      # 전략 자산 낙폭이 이 값을 넘으면 매수 규모 축소 시작 (예: 0.10)
+    dd_scale_floor: float = 0.30             # 이 낙폭에서 축소가 최대가 됨
+    dd_scale_min_mult: float = 0.25          # 최대 축소 시 매수 규모 배수
 
 
 @dataclass
@@ -102,6 +110,7 @@ class StrategyConfig:
     entry: EntryConfig = field(default_factory=EntryConfig)
     exit: ExitConfig = field(default_factory=ExitConfig)
     regime: RegimeConfig = field(default_factory=RegimeConfig)
+    risk: RiskConfig = field(default_factory=RiskConfig)
     costs: CostConfig = field(default_factory=CostConfig)
 
     # ---- 직렬화 ----
@@ -127,7 +136,7 @@ class StrategyConfig:
 
 _NESTED = {
     "data": DataConfig, "baskets": BasketConfig, "entry": EntryConfig,
-    "exit": ExitConfig, "regime": RegimeConfig, "costs": CostConfig,
+    "exit": ExitConfig, "regime": RegimeConfig, "risk": RiskConfig, "costs": CostConfig,
 }
 
 

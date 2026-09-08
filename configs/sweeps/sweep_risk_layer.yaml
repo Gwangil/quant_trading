@@ -1,0 +1,23 @@
+# 6차: 리스크 레이어(변동성 타게팅 노출상한, 낙폭 연동 축소) — 결합 균형형 후보 위에서
+split: "2018-01-01"
+max_mdd: -0.40
+by: simple_annual
+grid:
+  baskets.count: [4]
+  baskets.slices: [4, 6]
+  entry.dip_vol_mult: [0.25]
+  exit.lot_tp_vol_mult: [1.0]
+  exit.upday_sell_frac: [0.1, 0.2]
+  exit.basket_sl_pct: [null]
+  exit.basket_tp_pct: [0.20]
+  exit.max_hold_days: [60]
+  regime.enabled: [true]
+  regime.bear_max_baskets: [1]
+  regime.ma_band: [0.02]
+  regime.cooldown_after_sl_days: [20]
+  regime.breaker_dd: [null, 0.25]
+  risk.vol_target_annual: [null, 0.30, 0.45]
+  risk.dd_scale_start: [null, 0.10]
+  risk.dd_scale_floor: [0.30]
+  risk.dd_scale_min_mult: [0.25]
+  costs.commission_pct: [0.001]

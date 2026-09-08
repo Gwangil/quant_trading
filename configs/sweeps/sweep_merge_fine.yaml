@@ -1,0 +1,19 @@
+# 5차-b: 결합 전략 이웃 정밀 탐색 (레짐 ON, 목표 20%, 보유 60일 고정)
+split: "2018-01-01"
+max_mdd: -0.40
+by: simple_annual
+grid:
+  baskets.count: [4]
+  baskets.slices: [4, 6, 8]
+  entry.dip_vol_mult: [0.25]
+  exit.lot_tp_vol_mult: [0.5, 1.0, 1.5]
+  exit.upday_sell_frac: [0.1, 0.2, 0.3]
+  exit.basket_sl_pct: [null]
+  exit.basket_tp_pct: [0.20]
+  exit.max_hold_days: [60]
+  regime.enabled: [true]
+  regime.bear_max_baskets: [1]
+  regime.ma_band: [0.02]
+  regime.cooldown_after_sl_days: [20]
+  regime.breaker_dd: [null, 0.25, 0.30]
+  costs.commission_pct: [0.001]

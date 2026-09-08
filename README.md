@@ -26,17 +26,20 @@ pytest -q
 
 ```bash
 # 1) 백테스트 (번들 데이터: 네트워크 불필요)
-qtrade backtest -c configs/soxl_hybrid.yaml -o reports        # 실제 SOXL 하이브리드 2001~2026
-qtrade backtest -c configs/proxy_nasdaq3x.yaml -o reports     # 나스닥×3 프록시 1999~2018
+qtrade backtest -c configs/soxl_balanced_hybrid.yaml -o reports   # 실제 SOXL 하이브리드 2001~2026
+qtrade backtest -c configs/nasdaq3x_balanced.yaml -o reports      # 나스닥×3 프록시 1999~2018
 
-# 2) 실제 SOXL/SOXX 로 백테스트 (yfinance 로 내려받아 data/cache 에 저장)
-qtrade backtest -c configs/soxl_basket.yaml -o reports
+# 2) 실제 SOXL/SOXX 최신 데이터로 백테스트 (yfinance 로 내려받아 data/cache 에 저장)
+qtrade backtest -c configs/soxl_balanced.yaml -o reports
 
-# 3) 파라미터 탐색 (학습/검증 분리 포함)
-qtrade sweep -c configs/soxl_basket.yaml -g configs/sweep_core.yaml -o reports/sweeps --top 20
+# 3) 파라미터 탐색 (IS/OOS 분리)
+qtrade sweep -c configs/soxl_balanced_hybrid.yaml -g configs/sweeps/sweep_merge_fine.yaml -o reports/sweeps --top 20
 
 # 4) 다음 거래일 주문표
-qtrade orders -c configs/soxl_basket.yaml -o reports/orders
+qtrade orders -c configs/soxl_balanced.yaml -o reports/orders
+
+# 5) 프로필 정의(src/qtrade/profiles.py)를 바꾼 뒤 설정 파일 재생성
+qtrade make-configs
 ```
 
 `python -m qtrade ...` 로도 실행됩니다.
@@ -44,17 +47,16 @@ qtrade orders -c configs/soxl_basket.yaml -o reports/orders
 ## 프로젝트 구조
 
 ```
-configs/            전략 설정(YAML)과 탐색 그리드
-  soxl_basket.yaml        실전 기본 설정 (SOXL / SOXX, yfinance) — 균형형
-  soxl_aggressive.yaml    실전 공격형
-  soxl_hybrid*.yaml       번들 SOXL 하이브리드 스냅샷(invest_strategy 출처)으로 같은 설정 검증
-  proxy_nasdaq3x.yaml     번들 데이터 프록시 (NASDAQ×3 합성, 1999~2018)
-  proxy_semi3x_stress.yaml 반도체 스트레스 프록시 (NASDAQ×1.3 민감도 ×3)
-  sweep_*.yaml            파라미터 그리드
+configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에서 생성
+  soxl_{defensive,balanced,aggressive}.yaml         실전 (yfinance)
+  soxl_*_hybrid.yaml                                 번들 SOXL 하이브리드로 검증 재현
+  nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
+  sweeps/                                            탐색 그리드
 data/bundled/       오프라인 검증용 일봉: SOXL/SOXX 하이브리드 2001-2026, NASDAQ/SP500 1999-2018
 data/cache/         yfinance 캐시 (git 제외)
 src/qtrade/
   config.py         설정 dataclass / YAML 로더 / 점 표기 오버라이드
+  profiles.py       방어형/균형형/공격형 프로필 정의 (설정의 단일 원천)
   data.py           데이터 로딩, 레버리지 합성, 백필
   strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (전략의 핵심)
   engine.py         LOC/MOC 종가 체결 시뮬레이션, 자산·거래 기록
@@ -68,15 +70,17 @@ reports/            생성된 리포트
 docs/               설계 · 결과 · 운용 문서
 ```
 
-## 결과 요약 (실제 SOXL 하이브리드, 2002~2026, 복리)
+## 결과 요약 (실제 SOXL 하이브리드 2002~2026, 복리, 수수료 0.1%)
 
-| 설정 | CAGR | MDD | OOS 2018~ CAGR / MDD | 2022년 |
-|---|---|---|---|---|
-| 균형형 | 15.3% | −33% | 26.9% / −18% | −4.7% |
-| 공격형 | 23.8% | −49% | 42.0% / −36% | −18% |
-| SOXL 보유 | 6.8% | −99.6% | 36.6% / −90.5% | −85.7% |
+| 프로필 | CAGR | MDD | MDD 회복 | 최악의 달 | OOS 2018~ CAGR / MDD | 2022년 |
+|---|---|---|---|---|---|---|
+| 방어형 | 10.1% | −26% | 378일 | −15% | 17.3% / −15% | −4% |
+| 균형형 (기본) | 15.7% | −36% | 411일 | −22% | 28.7% / −19% | −5% |
+| 공격형 | 20.1% | −43% | 441일 | −34% | 36.4% / −37% | −13% |
+| SOXL 보유 | 6.8% | −99.6% | 4,397일 | | 36.6% / −90.5% | −86% |
 
-자세한 표와 invest_strategy v5 와의 비교는 docs/02 §5.
+전략 한 줄: **바스켓 4개로 나눠 하락일에 LOC 로 조금씩 사고, 반등일마다 로트 익절 + 10% 부분매도로 현금을 회수하며, SOXX 200일선 약세 전환 시 노출을 1/4 이하로 줄인다.**
+근거·탐색 기록·민감도는 docs/02, invest_strategy v5 와의 비교는 docs/02 §5.
 
 ## 주의
 
