@@ -39,6 +39,14 @@ def _orders(a):
     print(render(orders, state, res))
 
 
+def _compare(a):
+    from .compare import write, render, PERIODS
+    table = write(a.out, a.capital)
+    for period in PERIODS:
+        print(f"\n## {period}\n" + render(table, period))
+    print(f"-> {a.out}/compare_reference.md")
+
+
 def _make_configs(a):
     from .profiles import write_all
     for w in write_all(a.out):
@@ -71,6 +79,10 @@ def main(argv=None):
     m = sp.add_parser("make-configs", help="프로필 정의(profiles.py)로부터 configs/*.yaml 재생성")
     m.add_argument("-o", "--out", default="configs")
     m.set_defaults(fn=_make_configs)
+    c = sp.add_parser("compare", help="기준 전략(baseline/v5) 과 프로필 비교표 생성")
+    c.add_argument("-o", "--out", default="reports")
+    c.add_argument("--capital", type=float, default=100_000_000.0)
+    c.set_defaults(fn=_compare)
     a = p.parse_args(argv)
     a.fn(a)
 

@@ -22,6 +22,8 @@ class BacktestResult:
     pending_orders: list[Order] = field(default_factory=list)   # 마지막 날 기준 다음 거래일 주문
     strategy: BasketStrategy | None = None
     final_cash: float = 0.0
+    n_skipped_orders: int = 0          # 정수 주 제약으로 건너뛴 주문 수 (integer_shares=True 일 때)
+    n_fillable_orders: int = 0         # 가격 조건을 만족해 체결 대상이 된 주문 수
 
 
 def prepare_frame(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -77,6 +79,9 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
     cash = float(cfg.initial_capital)     # 포트폴리오 전체 현금 (바스켓 예약분 포함)
     comm = cfg.costs.commission_pct
     slip = cfg.costs.slippage_pct
+    int_shares = cfg.costs.integer_shares
+    n_skipped = 0
+    n_fillable = 0
     daily_yield = cfg.cash_yield_annual / TRADING_DAYS
 
     pending: list[Order] = []
@@ -107,9 +112,13 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                 if o.kind == "LOC" and px > o.limit:
                     continue
                 fill_px = px * (1 + slip)
+                n_fillable += 1
                 qty = min(o.qty, max(b.cash_avail(), 0.0) / (fill_px * (1 + comm)))
                 qty = min(qty, cash / (fill_px * (1 + comm)))
+                if int_shares:
+                    qty = float(np.floor(qty + 1e-9))
                 if qty <= 1e-9:
+                    n_skipped += 1
                     continue
                 fee = qty * fill_px * comm
                 cash -= qty * fill_px + fee
@@ -134,6 +143,13 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                     frac = cfg.exit.lot_tp_sell_frac
                 if not lots or frac <= 0:
                     continue
+                n_fillable += 1
+                if int_shares and frac < 1.0:
+                    whole = float(np.floor(sum(l.qty for l in lots) * frac + 1e-9))
+                    if whole <= 0:
+                        n_skipped += 1
+                        continue
+                    frac = whole / sum(l.qty for l in lots)
                 qty = sum(l.qty for l in lots) * frac
                 cost = sum(l.qty * l.cost for l in lots) * frac
                 fee = qty * fill_px * comm
@@ -214,4 +230,5 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
     baskets_df = pd.DataFrame(brows) if brows else pd.DataFrame(
         columns=["id", "opened", "closed", "status", "budget", "pnl", "ret", "n_buys", "n_sells", "hold_days", "reason"])
     return BacktestResult(cfg=cfg, equity=eq, frame=frame, trades=trades_df, baskets=baskets_df,
-                          pending_orders=pending, strategy=strat, final_cash=cash)
+                          pending_orders=pending, strategy=strat, final_cash=cash,
+                          n_skipped_orders=n_skipped, n_fillable_orders=n_fillable)

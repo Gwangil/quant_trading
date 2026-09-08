@@ -52,6 +52,7 @@ class EntryConfig:
     depth_boost: float = 0.0           # 평단 대비 −10%마다 슬라이스 배수 가산 (물타기 가속, 0=비활성)
     max_slice_mult: float = 3.0
     target_vol: float | None = None    # 변동성 타게팅: 슬라이스 × min(1, target_vol/σ). 급변동기 매수 축소 (예: 0.04)
+    addon_below_avg_pct: float | None = None  # 2번째 슬라이스부터는 지정가 ≤ 평단 × (1 − 이 값) 일 때만 (v5 의 −5% 물타기 규칙)
 
 
 @dataclass
@@ -98,6 +99,7 @@ class RiskConfig:
 class CostConfig:
     commission_pct: float = 0.0007     # 편도 수수료 (0.07%)
     slippage_pct: float = 0.0          # 종가 체결이므로 기본 0
+    integer_shares: bool = False       # True: 정수 주만 체결 (1주 미만 주문은 건너뜀). 소액 계좌 검토용
 
 
 @dataclass

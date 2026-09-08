@@ -263,6 +263,10 @@ class BasketStrategy:
             lim = round(price * (1.0 - dip), 4)
             if lim <= 0:
                 continue
+            if not first and cfg.entry.addon_below_avg_pct is not None:
+                avg = b.avg_cost()
+                if avg:   # 평단 대비 일정 비율 아래에서만 추가매수 (지정가를 그 수준으로 낮춤)
+                    lim = round(min(lim, avg * (1.0 - cfg.entry.addon_below_avg_pct)), 4)
             orders.append(Order(b.id, "BUY", "LOC", amt / lim, lim, "first_slice" if first else "dip_slice"))
 
         # 2) 신규 바스켓 오픈 (오픈 즉시 첫 슬라이스 주문)

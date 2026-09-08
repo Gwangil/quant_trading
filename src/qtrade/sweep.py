@@ -44,6 +44,17 @@ def _run_one(args):
     m = compute_metrics(res.equity, res.frame["exposure"], res.baskets, res.trades)
     row = dict(overrides)
     row.update({k: m.get(k) for k in _METRIC_KEYS})
+    cap = cfg.initial_capital
+    eq = res.equity
+    yrs = (eq.index[-1] - eq.index[0]).days / 365.25
+    row["pnl_yr_cap"] = (eq.iloc[-1] - eq.iloc[0]) / cap / yrs           # 자본 대비 단리 연수익
+    row["mdd_cap"] = float(((eq - eq.cummax()) / cap).min())              # 자본 대비 MDD
+    if split is not None:
+        seg = eq[eq.index >= pd.Timestamp(split)]
+        if len(seg) > 30:
+            y2 = (seg.index[-1] - seg.index[0]).days / 365.25
+            row["test_pnl_yr_cap"] = (seg.iloc[-1] - seg.iloc[0]) / cap / y2
+            row["test_mdd_cap"] = float(((seg - seg.cummax()) / cap).min())
     row.update(_slice_metrics(res.equity, res.frame["exposure"], split))
     return row
 

@@ -1,0 +1,22 @@
+# 7차: 단리(고정 예산) 구조에서 v5 와 정면 비교 — 자본 효율(초기 투입) 재탐색
+split: "2018-01-01"
+max_mdd: -0.45
+by: pnl_yr_cap
+grid:
+  initial_capital: [100000000]
+  baskets.budget_mode: [fixed]
+  baskets.count: [4]
+  baskets.slices: [4, 6]
+  entry.first_slice_mult: [1.0, 2.0, 3.0]
+  entry.dip_vol_mult: [0.25]
+  exit.lot_tp_vol_mult: [0.5, 1.0]
+  exit.upday_sell_frac: [0.1, 0.2, 0.3]
+  exit.basket_sl_pct: [null]
+  exit.basket_tp_pct: [0.20]
+  exit.max_hold_days: [40, 60]
+  regime.enabled: [true]
+  regime.bear_max_baskets: [1, 2]
+  regime.ma_band: [0.02]
+  regime.cooldown_after_sl_days: [20]
+  regime.breaker_dd: [null, 0.15]
+  costs.commission_pct: [0.001]

@@ -85,7 +85,13 @@
 3. **연 20~30% 단리 목표**: 단리 연환산은 장기 복리 때문에 과장된다. OOS(2018~) 기준 균형형 CAGR 28.7%, 전체(2002~) 15.7% 다. 2000년대형 붕괴가 포함된 장기 평균으로는 CAGR 15% 안팎을, 낙폭은 −36% 를 기본값으로 이해하고 프로필을 고르는 것이 맞다.
 4. **세금·환율** 미반영. 해외주식 양도세(22%)와 원/달러는 실질 수익률에 크게 영향을 준다.
 
-## 5. 프로필과 설정 파일
+## 5. 기준 전략과 비교 도구
+
+- `src/qtrade/reference.py`: 영감이 된 pm님 baseline(`strategy_backtest.py`) 과 v5(브레이커·익절 1.5%) 재구현. 원본과 동등성 테스트 있음.
+- `qtrade compare`: baseline / v5 / v5(compound) / 프로필 3종(복리·단리) 을 같은 데이터·비용·지표로 비교해 `reports/compare_reference.md` 생성.
+- `scripts/min_capital.py`: 정수 주 제약 하 최소 시작 자산 검토.
+
+## 6. 프로필과 설정 파일
 
 프로필 정의는 `src/qtrade/profiles.py` 한 곳에 있고, `qtrade make-configs` 가 `configs/*.yaml` 을 생성한다.
 직접 YAML 을 고치지 말고 profiles.py 를 고친 뒤 재생성한다.

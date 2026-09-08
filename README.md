@@ -40,6 +40,12 @@ qtrade orders -c configs/soxl_balanced.yaml -o reports/orders
 
 # 5) 프로필 정의(src/qtrade/profiles.py)를 바꾼 뒤 설정 파일 재생성
 qtrade make-configs
+
+# 6) 영감이 된 baseline / v5 와 정면 비교표 생성
+qtrade compare
+
+# 7) 최소 시작 자산 검토 (정수 주 제약)
+python scripts/min_capital.py --fx 1400
 ```
 
 `python -m qtrade ...` 로도 실행됩니다.
@@ -57,6 +63,7 @@ data/cache/         yfinance 캐시 (git 제외)
 src/qtrade/
   config.py         설정 dataclass / YAML 로더 / 점 표기 오버라이드
   profiles.py       방어형/균형형/공격형 프로필 정의 (설정의 단일 원천)
+  reference.py      기준 전략(baseline/v5) 재구현   compare.py   기준 전략 vs 프로필 비교
   data.py           데이터 로딩, 레버리지 합성, 백필
   strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (전략의 핵심)
   engine.py         LOC/MOC 종가 체결 시뮬레이션, 자산·거래 기록
@@ -78,6 +85,9 @@ docs/               설계 · 결과 · 운용 문서
 | 균형형 (기본) | 15.7% | −36% | 411일 | −22% | 28.7% / −19% | −5% |
 | 공격형 | 20.1% | −43% | 441일 | −34% | 36.4% / −37% | −13% |
 | SOXL 보유 | 6.8% | −99.6% | 4,397일 | | 36.6% / −90.5% | −86% |
+
+복리 프레임에서 방어형은 영감이 된 v5 전략(예산 복리화)을 모든 지표에서 앞선다. 단리(이익 인출) 프레임에서는 v5 가 MDD/자본에서 앞선다 (docs/02 §5).
+최소 시작 자산: 균형형 약 1,400만원(권장 2,800만원 이상), docs/02 §6.
 
 전략 한 줄: **바스켓 4개로 나눠 하락일에 LOC 로 조금씩 사고, 반등일마다 로트 익절 + 10% 부분매도로 현금을 회수하며, SOXX 200일선 약세 전환 시 노출을 1/4 이하로 줄인다.**
 근거·탐색 기록·민감도는 docs/02, invest_strategy v5 와의 비교는 docs/02 §5.
