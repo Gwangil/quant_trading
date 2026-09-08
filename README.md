@@ -12,7 +12,8 @@
 
 자세한 설계 근거는 [docs/01_strategy_design.md](docs/01_strategy_design.md),
 백테스트 결과는 [docs/02_backtest_results.md](docs/02_backtest_results.md),
-실전 운용 절차는 [docs/03_live_operation.md](docs/03_live_operation.md) 를 보세요.
+실전 운용 절차는 [docs/03_live_operation.md](docs/03_live_operation.md),
+작업 요약과 로드맵은 [docs/04_roadmap.md](docs/04_roadmap.md) 를 보세요.
 
 ## 설치
 
