@@ -53,8 +53,10 @@ def test_engine_invariants_and_loc_semantics():
     t = t.merge(prev, left_on="date", right_index=True)
     buys = t[(t.side == "BUY") & (t.kind == "LOC")]
     assert (buys["close"] <= buys["prev"] * (1 + 1e-9)).all()
-    sells = t[(t.side == "SELL") & (t.kind == "LOC")]
-    assert (sells["pnl"] > 0).all()   # 로트 익절은 항상 매입가 위에서만 체결
+    sells = t[(t.side == "SELL") & (t.kind == "LOC") & (t.reason == "lot_tp")]
+    assert (sells["pnl"] > 0).all()   # 로트 익절은 항상 매입가 위에서만 체결 (상승일 부분매도는 손실 가능)
+    ups = t[t.reason == "upday_sell"]
+    assert (ups["close"] >= ups["prev"] * (1 - 1e-9)).all()   # 부분매도는 상승 마감일에만
     # 동시 활성 바스켓 수 제한
     assert f["n_active"].max() <= cfg.baskets.count
     # 종료된 바스켓은 사유가 있어야 함
@@ -98,7 +100,7 @@ def test_config_roundtrip_and_overrides():
     cfg = config_from_dict({"name": "x", "exit": {"basket_tp_pct": 0.2}, "data": {"synthetic": {"leverage": 2}}})
     assert cfg.exit.basket_tp_pct == 0.2 and cfg.data.synthetic.leverage == 2
     cfg2 = cfg.with_overrides({"baskets.count": 3})
-    assert cfg2.baskets.count == 3 and cfg.baskets.count == 5
+    assert cfg2.baskets.count == 3 and cfg.baskets.count == 4
     with pytest.raises(KeyError):
         config_from_dict({"nope": 1})
 
@@ -147,3 +149,11 @@ def test_breaker_halts_and_liquidates():
     assert "breaker" in set(res.baskets["reason"].dropna())
     # 해제 후 다시 바스켓을 연다 (단조 상승 경로라 LOC 매수 체결은 없을 수 있음)
     assert (pd.to_datetime(res.baskets["opened"]) > halted_days[-1]).any()
+
+
+def test_engine_defaults_match_balanced_profile():
+    """StrategyConfig() 의 구조 파라미터는 균형형 프로필과 같아야 한다 (문서·기본값·프로필 3중 불일치 방지)."""
+    from qtrade.profiles import build
+    d, b = StrategyConfig(), build("balanced")
+    for sec in ("baskets", "entry", "exit", "regime", "risk", "costs"):
+        assert getattr(d, sec) == getattr(b, sec), sec

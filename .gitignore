@@ -7,6 +7,6 @@ dist/
 .venv/
 venv/
 .env
-data/cache/
+data/cache/          # 단, SOXL.csv/SOXX.csv 는 스냅샷으로 git add -f 추적 중 (docs/02 §0)
 reports/**/tmp/
 .DS_Store

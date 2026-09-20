@@ -55,7 +55,7 @@
 
 ### 2.2.1 리스크 레이어 (`risk`, 포트폴리오 단위)
 
-- **변동성 타게팅 노출상한** `vol_target_annual`: 투자비중 ≤ 목표 연변동성 ÷ 매매대상 실현 연변동성. SOXL(연 60~100%)에 목표 30% 를 주면 평소 30~50% 이하로 노출이 제한되고 급변동기엔 자동으로 더 줄어든다.
+- **변동성 타게팅 노출상한** `vol_target_annual`: 투자비중 ≤ 목표 연변동성 ÷ 매매대상 실현 연변동성. 초기 방어형에 썼으나 워크포워드 조합(슬라이스 8·0.5σ) 위에서는 개선이 없어 **현재 프로필에서는 끔**(docs/02 §3).
 - `max_exposure`: 절대 상한.
 - `dd_scale_*` (낙폭 연동 축소): 구현은 남겨 두었으나 **실데이터에서 역효과**(회복 4배 지연)라 모든 프로필에서 끔. 근거는 docs/02 §3.
 
@@ -96,11 +96,11 @@
 ## 6. 프로필과 설정 파일
 
 프로필 정의는 `src/qtrade/profiles.py` 한 곳에 있고, `qtrade make-configs` 가 `configs/*.yaml` 을 생성한다.
-직접 YAML 을 고치지 말고 profiles.py 를 고친 뒤 재생성한다.
+직접 YAML 을 고치지 말고 profiles.py 를 고친 뒤 재생성한다. 옵션 전체 목록과 채택/기각 상태는 docs/06.
 
 | 파일 | 데이터 |
 |---|---|
 | `soxl_{defensive,balanced,aggressive}.yaml` | 실전 (yfinance, 2011~) |
-| `soxl_*_hybrid.yaml` | 번들 SOXL 하이브리드 2001~2026 (검증 재현) |
+| `soxl_*_cache.yaml` | data/cache 전 구간(2001~, 실제 SOXX 종가) — 주 검증·워크포워드용 |
 | `nasdaq3x_*.yaml` | 나스닥×3 프록시 1999~2018 (스트레스) |
-| `configs/sweeps/*.yaml` | 탐색 그리드 (실행 순서: regime → core → risk → final → hybrid → merge → merge_fine → risk_layer) |
+| `configs/sweeps/*.yaml` | 탐색 그리드 (역사 순: regime → core → risk → final → hybrid → merge → merge_fine → risk_layer → fixed → volregime, walkforward_core) |

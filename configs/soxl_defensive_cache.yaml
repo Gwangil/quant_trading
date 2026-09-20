@@ -1,3 +1,6 @@
+# 자동 생성 (qtrade make-configs). 수정은 src/qtrade/profiles.py 에서.
+# 방어형: 슬라이스 8 + 매수 하락률 0.5σ (롤링 워크포워드 5개 창에서 안정 선정된 조합). MDD −20%대, 최악 연도 −6%
+# 데이터: cache (SOXL/SOXX, csv)
 name: soxl_defensive_cache
 initial_capital: 100000
 cash_yield_annual: TBILL3M

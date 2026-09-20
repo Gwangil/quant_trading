@@ -1,3 +1,6 @@
+# 자동 생성 (qtrade make-configs). 수정은 src/qtrade/profiles.py 에서.
+# 균형형(기본): 슬라이스 6, 매수 하락률 0.25σ, 상승일 부분매도 10%
+# 데이터: cache (SOXL/SOXX, csv)
 name: soxl_balanced_cache
 initial_capital: 100000
 cash_yield_annual: TBILL3M

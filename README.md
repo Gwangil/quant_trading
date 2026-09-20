@@ -10,11 +10,15 @@
 바스켓은 목표수익 / 손실한도 / 보유기간 중 하나로 주기적으로 전량 청산해 현금을 회수한다.
 기준지수의 추세(200일선)로 약세장을 판정하면 동시 바스켓 수와 매수 규모를 줄여 MDD 를 관리한다.**
 
-자세한 설계 근거는 [docs/01_strategy_design.md](docs/01_strategy_design.md),
-백테스트 결과는 [docs/02_backtest_results.md](docs/02_backtest_results.md),
-실전 운용 절차는 [docs/03_live_operation.md](docs/03_live_operation.md),
-작업 요약과 로드맵은 [docs/04_roadmap.md](docs/04_roadmap.md),
-집행기(KIS/Meritz) 연동과 스케줄은 [docs/05_execution_integration.md](docs/05_execution_integration.md) 를 보세요.
+| 문서 | 내용 |
+|---|---|
+| [docs/01_strategy_design.md](docs/01_strategy_design.md) | 전략 설계와 근거, 체결 모델 |
+| [docs/02_backtest_results.md](docs/02_backtest_results.md) | 결과, 검증 기록(무엇이 무엇을 바꿨나), 워크포워드, 기준 전략 비교, 최소 자산 |
+| [docs/03_live_operation.md](docs/03_live_operation.md) | 일일 루틴, 페이퍼 트레이딩 절차, 심리 방어 규칙 |
+| [docs/04_roadmap.md](docs/04_roadmap.md) | 작업 요약·진행 상태·다음 단계 (작업 재개 시 여기부터) |
+| [docs/05_execution_integration.md](docs/05_execution_integration.md) | 집행기(KIS auto_trade / Meritz rpa_claude) 주문서 규격·발급 방법·스케줄·선택 기준 |
+| [docs/06_config_reference.md](docs/06_config_reference.md) | 설정 옵션 전체와 채택/기각 상태 (자동 생성) |
+| [CLAUDE.md](CLAUDE.md) | 개발 규칙 |
 
 ## 설치
 
@@ -48,7 +52,7 @@ pip install -e ".[data,dev]"
 
 ```bash
 # 1) 백테스트 (번들 데이터: 네트워크 불필요)
-qtrade backtest -c configs/soxl_balanced_hybrid.yaml -o reports   # 실제 SOXL 하이브리드 2001~2026
+qtrade backtest -c configs/soxl_balanced_cache.yaml -o reports    # 실제 SOXL/SOXX 2001~최신 (data/cache)
 qtrade backtest -c configs/nasdaq3x_balanced.yaml -o reports      # 나스닥×3 프록시 1999~2018
 
 # 2) 실제 SOXL/SOXX 최신 데이터로 백테스트 (yfinance + 번들 스냅샷 → data/cache)
@@ -81,7 +85,6 @@ python scripts/min_capital.py --fx 1400
 configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에서 생성
   soxl_{defensive,balanced,aggressive}.yaml         실전 (yfinance)
   soxl_*_cache.yaml                                  data/cache 전 구간(2001~) 연구용 — 주 검증 데이터
-  soxl_*_hybrid.yaml                                 번들 스냅샷(~2026-07)으로 재현
   nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
   sweeps/                                            탐색 그리드
 data/cache/         qtrade data update 결과 (SOXL/SOXX 2001~최신, git 추적: git add -f)
@@ -102,8 +105,9 @@ src/qtrade/
   sheet.py          집행기 주문서 내보내기 (KIS JSON, Meritz CSV, 동일가 합산)
   serve.py          주문서 발급 HTTP 서버 (qtrade serve)
   orders.py         실전 주문표 생성 (전 구간 재현 방식)
-  cli.py            qtrade 명령
-tests/              pytest
+  cli.py            qtrade 명령 (backtest, sweep, walkforward, compare, orders, serve, data, make-configs)
+scripts/            min_capital.py(최소 자산 검토), gen_config_reference.py(docs/06 생성)
+tests/              pytest (19개: 엔진 불변식, 기준 전략 동등성, 갱신·파킹·주문서·서버)
 reports/            생성된 리포트
 docs/               설계 · 결과 · 운용 문서
 ```

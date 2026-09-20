@@ -51,13 +51,13 @@ DATA = {
     "cache": {"symbol": "SOXL", "reference": "SOXX", "source": "csv", "start": None, "end": None,
               "backfill": False, "synthetic": None},  # 캐시 전 구간(2001~, 합성 포함) — 연구용
     "hybrid": {"symbol": "SOXL", "reference": "SOXX", "source": "bundled", "start": None, "end": None,
-               "backfill": False, "synthetic": None},
+               "backfill": False, "synthetic": None},   # 번들 스냅샷(~2026-07, SOXX 근사) — 재현용, 설정 파일은 생성하지 않음
     "proxy": {"symbol": "NASDAQ3X", "reference": "NASDAQ", "source": "bundled", "start": None, "end": None,
               "backfill": False, "synthetic": {"leverage": 3, "beta": 1.0, "expense_ratio": 0.0095, "financing_rate": 0.02}},
 }
 
 
-def build(profile: str, data: str = "hybrid", name: str | None = None) -> StrategyConfig:
+def build(profile: str, data: str = "cache", name: str | None = None) -> StrategyConfig:
     import copy
     raw = copy.deepcopy(CORE)
     raw["name"] = name or f"soxl_{profile}"
@@ -71,7 +71,7 @@ def write_all(out_dir: str = "configs") -> list[str]:
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     written = []
     for profile in PROFILES:
-        for data, suffix in (("live", ""), ("hybrid", "_hybrid"), ("proxy", "_proxy")):
+        for data, suffix in (("live", ""), ("cache", "_cache"), ("proxy", "_proxy")):
             name = f"soxl_{profile}{suffix}" if data != "proxy" else f"nasdaq3x_{profile}"
             cfg = build(profile, data, name)
             path = out / f"{name}.yaml"

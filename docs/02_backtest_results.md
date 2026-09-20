@@ -42,7 +42,7 @@ SOXX 200일선 레짐(**밴드 0**, 약세장 바스켓 1개·슬라이스 ×0.5
 | 실데이터 2010-03~ | 균형형 | 20.8% | −27.8% | 401일 | 770일 | −10.4% | | | | 16% | 38.0% / −90.5% |
 | 실데이터 2010-03~ | 공격형 | 26.4% | −41.2% | 447일 | 958일 | −30.3% | | | | 23% | 38.0% / −90.5% |
 
-원본 `reports/profiles_summary.csv`, 리포트 `reports/soxl_*_cache.md/.png`, 실전 설정 기준(2011~) 리포트 `reports/live/`.
+원본 `reports/profiles_summary.csv`, 리포트 `reports/soxl_*_cache.md/.png`, 실전 설정 기준(2011~) 리포트 `reports/live/`. 번들 스냅샷 기반 `*_hybrid` 설정·리포트는 2026-09-20 제거(재현은 `profiles.build(profile, "hybrid")`).
 2026-07-24 이후 두 달(SOXL 고점 대비 −33% 조정 포함): 방어형 +2.7%, 균형형 +5.9%, 공격형 +9.1%, SOXL 보유 −9.6%.
 
 ### 2.1 현금 파킹 효과 (`cash_yield_annual: TBILL3M`, `cash_yield_fraction: 0.8`, 보수 −0.15%)
