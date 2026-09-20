@@ -54,6 +54,20 @@ def _compare(a):
     print(f"-> {a.out}/compare_reference.md")
 
 
+def _walkforward(a):
+    import yaml
+    from .walkforward import walk_forward, render, DEFAULT_WINDOWS
+    cfg = load_config(a.config)
+    raw = yaml.safe_load(open(a.grid, encoding="utf-8"))
+    grid = raw["grid"]; windows = [tuple(w) for w in raw.get("windows", DEFAULT_WINDOWS)]
+    out = walk_forward(cfg, grid, windows, mdd_gate=raw.get("mdd_gate", -0.40), by=raw.get("by", "calmar"),
+                       workers=a.workers, fixed=raw.get("fixed", {}))
+    Path(a.out).mkdir(parents=True, exist_ok=True)
+    out["table"].to_csv(Path(a.out) / f"{a.name}.csv", index=False)
+    out["wf_equity"].to_csv(Path(a.out) / f"{a.name}_equity.csv")
+    md = render(out, a.name); (Path(a.out) / f"{a.name}.md").write_text(md, encoding="utf-8"); print(md)
+
+
 def _make_configs(a):
     from .profiles import write_all
     for w in write_all(a.out):
@@ -94,6 +108,10 @@ def main(argv=None):
     m = sp.add_parser("make-configs", help="프로필 정의(profiles.py)로부터 configs/*.yaml 재생성")
     m.add_argument("-o", "--out", default="configs")
     m.set_defaults(fn=_make_configs)
+    w = sp.add_parser("walkforward", help="롤링 워크포워드 (창별 파라미터 재선정)")
+    w.add_argument("-c", "--config", required=True); w.add_argument("-g", "--grid", required=True)
+    w.add_argument("-o", "--out", default="reports/walkforward"); w.add_argument("-n", "--name", default="walkforward")
+    w.add_argument("--workers", type=int, default=None); w.set_defaults(fn=_walkforward)
     c = sp.add_parser("compare", help="기준 전략(baseline/v5) 과 프로필 비교표 생성")
     c.add_argument("-o", "--out", default="reports")
     c.add_argument("--capital", type=float, default=100_000_000.0)

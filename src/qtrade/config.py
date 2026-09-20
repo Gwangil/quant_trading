@@ -80,6 +80,8 @@ class RegimeConfig:
     bear_no_new_lots: bool = False     # 약세장에서는 신규 매수 자체를 중단
     bear_liquidate: bool = False       # 약세 전환 시 bear_max_baskets 초과분(수익률 낮은 순)을 청산
     cooldown_after_sl_days: int = 0           # 바스켓 손절 후 이 기간 동안 신규 바스켓 오픈 금지
+    ref_vol_bear_abs: float | None = None     # 기준지수 20일 일변동성이 이 값 초과면 약세 (예: 0.03)
+    ref_vol_bear_rel: float | None = None     # 기준지수 20일 변동성 / 252일 변동성 이 이 배수 초과면 약세 (예: 1.8)
     breaker_dd: float | None = None           # 계좌 서킷브레이커: 총자산이 고점 대비 이 비율 이상 빠지면 전량 청산·매매 중단 (예: 0.15)
     breaker_resume_sma: int = 200             # 중단 해제: 매매 대상 종가가 이 이동평균 위로 복귀하면 재개 (고점은 현재 자산으로 리셋)
     max_vol_to_open: float | None = None      # 일변동성이 이 값 초과면 신규 바스켓 오픈 금지 (예: 0.06)

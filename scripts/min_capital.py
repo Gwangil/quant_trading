@@ -22,7 +22,7 @@ def main():
     ap.add_argument("--ref-price", type=float, default=None, help="기준가(USD). 기본: 마지막 종가")
     ap.add_argument("--start", default="2018-01-01")
     a = ap.parse_args()
-    base = build("balanced", "hybrid")
+    base = build("balanced", "cache")
     full = build_dataset(base.data)
     ref_price = a.ref_price or float(full["close"].iloc[-1])
     win = full[full.index >= pd.Timestamp(a.start) - pd.Timedelta(days=400)].copy()   # 지표 워밍업 포함
@@ -33,10 +33,10 @@ def main():
     for profile in ["defensive", "balanced", "aggressive"]:
         for label, d in (("scaled", scaled), ("raw", win)):
             dd = d[d.index >= pd.Timestamp(a.start) - pd.Timedelta(days=400)]
-            cfg = build(profile, "hybrid"); cfg.data.start = a.start
+            cfg = build(profile, "cache"); cfg.data.start = a.start
             base_frac = None
             for cap in CAPITALS:
-                c = build(profile, "hybrid"); c.data.start = a.start; c.initial_capital = cap
+                c = build(profile, "cache"); c.data.start = a.start; c.initial_capital = cap
                 if base_frac is None:
                     c.costs.integer_shares = False
                     r = run_backtest(c, dd); m = compute_metrics(r.equity, r.frame["exposure"])

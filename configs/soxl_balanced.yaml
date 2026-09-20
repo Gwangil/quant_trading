@@ -1,5 +1,5 @@
 # 자동 생성 (qtrade make-configs). 수정은 src/qtrade/profiles.py 에서.
-# 균형형(기본): 상승일 부분매도 10%, 노출상한 없음
+# 균형형(기본): 슬라이스 6, 매수 하락률 0.25σ, 상승일 부분매도 10%
 # 데이터: live (SOXL/SOXX, csv)
 name: soxl_balanced
 initial_capital: 100000
@@ -49,12 +49,14 @@ exit:
 regime:
   enabled: true
   ma_window: 200
-  ma_band: 0.02
+  ma_band: 0.0
   bear_max_baskets: 1
   bear_slice_mult: 0.5
   bear_no_new_lots: false
   bear_liquidate: true
   cooldown_after_sl_days: 20
+  ref_vol_bear_abs: null
+  ref_vol_bear_rel: null
   breaker_dd: null
   breaker_resume_sma: 200
   max_vol_to_open: null

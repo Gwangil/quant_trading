@@ -32,7 +32,7 @@ def _slice(eq: pd.Series, period: str) -> pd.Series:
     return out
 
 
-def collect(capital: float = 100_000_000.0, data_key: str = "hybrid", profiles: list[str] | None = None,
+def collect(capital: float = 100_000_000.0, data_key: str = "cache", profiles: list[str] | None = None,
             modes: tuple[str, ...] = ("equity", "fixed")) -> tuple[pd.DataFrame, dict[str, pd.Series]]:
     """행: (전략, 기간) × 지표. 반환: (표, 전략별 equity)."""
     base_cfg = build("balanced", data_key)
@@ -105,7 +105,7 @@ def write(out_dir: str | Path = "reports", capital: float = 100_000_000.0) -> pd
     table.to_csv(out / "compare_reference.csv", index=False)
     pd.DataFrame(curves).to_csv(out / "compare_reference_equity.csv")
     md = ["# 기준 전략(baseline / v5) vs 프로필 비교", "",
-          f"실제 SOXL 하이브리드 2001-08~2026-07, 자본 {capital:,.0f}, 수수료 0.1%/편도, 종가 체결. "
+          f"실제 SOXL/SOXX 2001-08~2026-09-18(data/cache, 2010-03 이전 합성), 자본 {capital:,.0f}, 수수료 0.1%/편도, 종가 체결. "
           "`(fixed)` = 바스켓 예산을 초기자본/4 로 고정한 단리 모드(기준 전략과 같은 구조). "
           "`v5(compound)` = v5 의 바구니 예산을 현재 총자산/8 로 갱신한 복리 변형(본 프로젝트 기본 모드와 같은 구조). "
           "프로필의 현금 파킹(TBILL3M×80%)은 기준 전략에 없으므로 이 표에서는 끄고 비교했다.", ""]

@@ -49,12 +49,14 @@ exit:
 regime:
   enabled: true
   ma_window: 200
-  ma_band: 0.02
+  ma_band: 0.0
   bear_max_baskets: 1
   bear_slice_mult: 0.5
   bear_no_new_lots: false
   bear_liquidate: true
   cooldown_after_sl_days: 20
+  ref_vol_bear_abs: null
+  ref_vol_bear_rel: null
   breaker_dd: 0.25
   breaker_resume_sma: 200
   max_vol_to_open: null

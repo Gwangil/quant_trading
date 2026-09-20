@@ -31,7 +31,16 @@ def prepare_frame(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> pd.D
     df = (data if data is not None else build_dataset(cfg.data)).copy()
     df["vol"] = realized_vol(df["close"], cfg.entry.vol_window)
     ma = sma(df["ref_close"], cfg.regime.ma_window)
-    df["bull"] = regime_flags(df["ref_close"], ma, cfg.regime.ma_band)
+    bull = regime_flags(df["ref_close"], ma, cfg.regime.ma_band)
+    rv = realized_vol(df["ref_close"], cfg.entry.vol_window)
+    df["ref_vol"] = rv
+    vol_bear = pd.Series(False, index=df.index)
+    if cfg.regime.ref_vol_bear_abs is not None:
+        vol_bear |= rv > cfg.regime.ref_vol_bear_abs
+    if cfg.regime.ref_vol_bear_rel is not None:
+        lv = realized_vol(df["ref_close"], 252)
+        vol_bear |= (rv / lv) > cfg.regime.ref_vol_bear_rel
+    df["bull"] = bull.where(~vol_bear, other=0.0)
     df["sym_sma"] = sma(df["close"], cfg.regime.breaker_resume_sma)
     return df
 

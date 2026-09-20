@@ -54,8 +54,9 @@ qtrade backtest -c configs/nasdaq3x_balanced.yaml -o reports      # 나스닥×3
 qtrade data update
 qtrade backtest -c configs/soxl_balanced.yaml -o reports
 
-# 3) 파라미터 탐색 (IS/OOS 분리)
-qtrade sweep -c configs/soxl_balanced_hybrid.yaml -g configs/sweeps/sweep_merge_fine.yaml -o reports/sweeps --top 20
+# 3) 파라미터 탐색 (IS/OOS 분리) / 롤링 워크포워드
+qtrade sweep -c configs/soxl_balanced_cache.yaml -g configs/sweeps/sweep_merge_fine.yaml -o reports/sweeps --top 20
+qtrade walkforward -c configs/soxl_balanced_cache.yaml -g configs/sweeps/walkforward_core.yaml
 
 # 4) 다음 거래일 주문표 (+ auto_trade 주문서 JSON, 모의투자용)
 qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper
@@ -77,10 +78,12 @@ python scripts/min_capital.py --fx 1400
 ```
 configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에서 생성
   soxl_{defensive,balanced,aggressive}.yaml         실전 (yfinance)
-  soxl_*_hybrid.yaml                                 번들 SOXL 하이브리드로 검증 재현
+  soxl_*_cache.yaml                                  data/cache 전 구간(2001~) 연구용 — 주 검증 데이터
+  soxl_*_hybrid.yaml                                 번들 스냅샷(~2026-07)으로 재현
   nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
   sweeps/                                            탐색 그리드
-data/bundled/       오프라인 검증용 일봉: SOXL/SOXX 하이브리드 2001-2026, NASDAQ/SP500 1999-2018
+data/cache/         qtrade data update 결과 (SOXL/SOXX 2001~최신, git 추적: git add -f)
+data/bundled/       스냅샷: SOXL/SOXX 하이브리드 ~2026-07, NASDAQ/SP500 1999-2018, T-bill 표
 data/cache/         yfinance 캐시 (git 제외)
 src/qtrade/
   config.py         설정 dataclass / YAML 로더 / 점 표기 오버라이드
@@ -92,6 +95,7 @@ src/qtrade/
   metrics.py        단리/CAGR/MDD/회복기간/연도별 수익률
   report.py         마크다운 + 차트 리포트
   sweep.py          그리드 탐색 (멀티프로세스, 학습/검증 분리)
+  walkforward.py    롤링 워크포워드 (창별 파라미터 재선정)
   updater.py        시세 갱신 (yfinance + 번들 스냅샷 splice, 미완성 봉 필터)
   sheet.py          auto_trade 주문서 규격 v1 JSON 내보내기
   orders.py         실전 주문표 생성 (전 구간 재현 방식)
@@ -101,19 +105,19 @@ reports/            생성된 리포트
 docs/               설계 · 결과 · 운용 문서
 ```
 
-## 결과 요약 (실제 SOXL 하이브리드 2002~2026, 복리, 수수료 0.1%, 현금 80% 단기채 파킹)
+## 결과 요약 (실제 SOXL/SOXX 2002~2026-09, 복리, 수수료 0.1%, 현금 80% 단기채 파킹)
 
-| 프로필 | CAGR | MDD | MDD 회복 | 최악의 달 | OOS 2018~ CAGR / MDD | 2022년 |
-|---|---|---|---|---|---|---|
-| 방어형 | 11.4% | −26% | 375일 | −15% | 19.4% / −15% | −4% |
-| 균형형 (기본) | 16.9% | −36% | 409일 | −21% | 30.8% / −19% | −5% |
-| 공격형 | 21.2% | −43% | 441일 | −34% | 38.5% / −36% | −13% |
-| SOXL 보유 | 6.8% | −99.6% | 4,397일 | | 36.6% / −90.5% | −86% |
+| 프로필 | CAGR | MDD | MDD 회복 | 최악 연도 | 최악의 달 | OOS 2018~ CAGR / MDD | 최소 자본 |
+|---|---|---|---|---|---|---|---|
+| 방어형 | 11.5% | −19% | 389일 | −6% | −14% | 14.7% / −18% | 2,800만원 |
+| 균형형 (기본) | 17.4% | −28% | 401일 | −10% | −22% | 24.3% / −23% | 1,400만원 (권장 2,800만) |
+| 공격형 | 20.9% | −41% | 447일 | −30% | −28% | 35.0% / −37% | 2,800만원 |
+| SOXL 보유 | 6.3% | −99.6% | 4,397일 | −95% | −70% | 34.3% / −90.5% | |
 
-복리 프레임에서 방어형은 영감이 된 v5 전략(예산 복리화)을 모든 지표에서 앞선다. 단리(이익 인출) 프레임에서는 v5 가 MDD/자본에서 앞선다 (docs/02 §5).
-최소 시작 자산: 균형형 약 1,400만원(권장 2,800만원 이상), docs/02 §6.
+복리 프레임에서 방어형은 영감이 된 v5 전략(예산 복리화)을 모든 지표에서 앞선다. 단리(이익 인출) 프레임에서는 균형형과 v5 가 동률 수준이다 (docs/02 §5).
+롤링 워크포워드 5개 창 검증 완료 (docs/02 §3.1).
 
-전략 한 줄: **바스켓 4개로 나눠 하락일에 LOC 로 조금씩 사고, 반등일마다 로트 익절 + 10% 부분매도로 현금을 회수하며, SOXX 200일선 약세 전환 시 노출을 1/4 이하로 줄인다.**
+전략 한 줄: **바스켓 4개로 나눠 하락일에 LOC 로 조금씩 사고, 반등일마다 로트 익절 + 10% 부분매도로 현금을 회수하며, SOXX 200일선 약세 전환 시 노출을 1/4 이하로 줄인다.** 대기 현금은 단기채에 파킹.
 근거·탐색 기록·민감도는 docs/02, invest_strategy v5 와의 비교는 docs/02 §5.
 
 ## 주의

@@ -1,6 +1,7 @@
 """전략 프로필(방어형/균형형/공격형)의 단일 원천. configs/*.yaml 은 `qtrade make-configs` 로 생성한다.
 
-실제 SOXL 하이브리드 스냅샷(2001~2026, IS ~2017 / OOS 2018~)으로 재탐색한 값. 근거: docs/02_backtest_results.md
+실제 SOXL/SOXX(2001~2026-09, data/cache) 로 재탐색·롤링 워크포워드 검증한 값. 근거: docs/02_backtest_results.md
+2026-09-20 갱신: 실제 SOXX 종가 기준으로 레짐 밴드 0, 방어형은 워크포워드 안정 조합(슬라이스 8·하락률 0.5σ) 채택.
 """
 from __future__ import annotations
 
@@ -22,9 +23,10 @@ CORE = {
              "upday_sell_frac": 0.1, "upday_min_rise": 0.0,
              "basket_tp_pct": 0.20, "basket_sl_pct": None, "max_hold_days": 60, "hard_max_hold_days": 120,
              "soft_exit_pnl_pct": 0.0},
-    "regime": {"enabled": True, "ma_window": 200, "ma_band": 0.02, "bear_max_baskets": 1, "bear_slice_mult": 0.5,
+    "regime": {"enabled": True, "ma_window": 200, "ma_band": 0.0, "bear_max_baskets": 1, "bear_slice_mult": 0.5,
                "bear_no_new_lots": False, "bear_liquidate": True, "cooldown_after_sl_days": 20,
-               "max_vol_to_open": None, "breaker_dd": None, "breaker_resume_sma": 200},
+               "max_vol_to_open": None, "ref_vol_bear_abs": None, "ref_vol_bear_rel": None,
+               "breaker_dd": None, "breaker_resume_sma": 200},
     "risk": {"vol_target_annual": None, "max_exposure": 1.0, "dd_scale_start": None,
              "dd_scale_floor": 0.30, "dd_scale_min_mult": 0.25},
     "costs": {"commission_pct": 0.001, "slippage_pct": 0.0},
@@ -32,20 +34,22 @@ CORE = {
 
 # 프로필별 차이 (점 표기 오버라이드)
 PROFILES = {
-    "defensive": {"exit.upday_sell_frac": 0.2, "risk.vol_target_annual": 0.30},
+    "defensive": {"baskets.slices": 8, "entry.dip_vol_mult": 0.5},
     "balanced": {},
-    "aggressive": {"baskets.slices": 4, "regime.breaker_dd": 0.25, "regime.ma_band": 0.02},
+    "aggressive": {"baskets.slices": 4, "regime.breaker_dd": 0.25},
 }
 
 PROFILE_DESC = {
-    "defensive": "방어형: 상승일 부분매도 20% + 연 30% 변동성 타게팅 노출상한. MDD·낙폭 체류를 최소화",
-    "balanced": "균형형(기본): 상승일 부분매도 10%, 노출상한 없음",
+    "defensive": "방어형: 슬라이스 8 + 매수 하락률 0.5σ (롤링 워크포워드 5개 창에서 안정 선정된 조합). MDD −20%대, 최악 연도 −6%",
+    "balanced": "균형형(기본): 슬라이스 6, 매수 하락률 0.25σ, 상승일 부분매도 10%",
     "aggressive": "공격형: 슬라이스 4(빠른 투입) + 계좌 서킷브레이커 −25%. 수익 우선, MDD −40%대 감수",
 }
 
 DATA = {
     "live": {"symbol": "SOXL", "reference": "SOXX", "source": "csv", "start": "2011-01-03", "end": None,
              "backfill": False, "synthetic": None},   # data/cache/*.csv ← `qtrade data update`
+    "cache": {"symbol": "SOXL", "reference": "SOXX", "source": "csv", "start": None, "end": None,
+              "backfill": False, "synthetic": None},  # 캐시 전 구간(2001~, 합성 포함) — 연구용
     "hybrid": {"symbol": "SOXL", "reference": "SOXX", "source": "bundled", "start": None, "end": None,
                "backfill": False, "synthetic": None},
     "proxy": {"symbol": "NASDAQ3X", "reference": "NASDAQ", "source": "bundled", "start": None, "end": None,

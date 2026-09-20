@@ -89,6 +89,8 @@
 
 - `src/qtrade/reference.py`: 영감이 된 pm님 baseline(`strategy_backtest.py`) 과 v5(브레이커·익절 1.5%) 재구현. 원본과 동등성 테스트 있음.
 - `qtrade compare`: baseline / v5 / v5(compound) / 프로필 3종(복리·단리) 을 같은 데이터·비용·지표로 비교해 `reports/compare_reference.md` 생성.
+- `qtrade walkforward`: 확장형 학습 → 4년 검증 창 5개에서 파라미터를 재선정해 이어붙인 OOS 곡선과 파라미터 안정성을 본다.
+- `regime.ref_vol_bear_abs/rel`: 기준지수 변동성 급등을 약세 조건에 추가하는 옵션. 실데이터에서 효과 없어 프로필에서는 끔.
 - `scripts/min_capital.py`: 정수 주 제약 하 최소 시작 자산 검토.
 
 ## 6. 프로필과 설정 파일
