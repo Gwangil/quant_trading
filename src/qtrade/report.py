@@ -117,7 +117,7 @@ def write_report(res: BacktestResult, out_dir: str | Path, name: str | None = No
     m = summarize(res)
     (out / f"{name}.md").write_text(render_markdown(res, m, title), encoding="utf-8")
     plot(res, out / f"{name}.png", title)
-    res.trades.to_csv(out / f"{name}_trades.csv", index=False)
+    res.trades.drop(columns=["lots"], errors="ignore").to_csv(out / f"{name}_trades.csv", index=False)
     res.baskets.to_csv(out / f"{name}_baskets.csv", index=False)
     res.frame.to_csv(out / f"{name}_daily.csv")
     return m

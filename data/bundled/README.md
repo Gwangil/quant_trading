@@ -9,3 +9,4 @@
 SOXX 스냅샷에는 종가 컬럼이 없어 고가·저가 중간값을 종가 대용으로 쓴다(200일선 레짐 판단용이라 영향 미미).
 | reference_equity_cap1e8.csv | 원본 invest_strategy 코드로 baseline/v5 를 자본 1억으로 실행한 일별 총자산 (동등성 테스트 기준값) | 원본 코드 실행 |
 | TBILL3M_annual.csv | 미국 3개월 T-bill 연평균 금리 **근사치** (FRED DTB3 연평균을 기억에 의존해 기입, 2025~2026 은 추정). 현금 파킹 수익률용. 로컬에서 FRED 값으로 갱신 권장 | 근사 |
+| USDKRW_annual.csv | 원/달러 **연평균 근사치** (기억에 의존, 2025~2026 추정). 세후 원화 지표의 폴백. `qtrade data update USDKRW` 로 일별 실측치를 받으면 그쪽이 우선 | 근사 |

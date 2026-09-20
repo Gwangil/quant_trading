@@ -73,6 +73,9 @@ qtrade make-configs
 # 6) 영감이 된 baseline / v5 와 정면 비교표 생성
 qtrade compare
 
+# 6-1) 세후 원화 지표 (달러 / 원화 / 세후 원화)
+qtrade tax -c configs/soxl_balanced.yaml -o reports/tax
+
 # 7) 최소 시작 자산 검토 (정수 주 제약)
 python scripts/min_capital.py --fx 1400
 ```
@@ -94,6 +97,7 @@ src/qtrade/
   config.py         설정 dataclass / YAML 로더 / 점 표기 오버라이드
   profiles.py       방어형/균형형/공격형 프로필 정의 (설정의 단일 원천)
   reference.py      기준 전략(baseline/v5) 재구현   compare.py   기준 전략 vs 프로필 비교
+  tax.py            세후 원화 지표 (양도세·이자세·환율, qtrade tax)
   data.py           데이터 로딩, 레버리지 합성, 백필
   strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (전략의 핵심)
   engine.py         LOC/MOC 종가 체결 시뮬레이션, 자산·거래 기록
@@ -105,7 +109,7 @@ src/qtrade/
   sheet.py          집행기 주문서 내보내기 (KIS JSON, Meritz CSV, 동일가 합산)
   serve.py          주문서 발급 HTTP 서버 (qtrade serve)
   orders.py         실전 주문표 생성 (전 구간 재현 방식)
-  cli.py            qtrade 명령 (backtest, sweep, walkforward, compare, orders, serve, data, make-configs)
+  cli.py            qtrade 명령 (backtest, sweep, walkforward, compare, tax, orders, serve, data, make-configs)
 scripts/            min_capital.py(최소 자산 검토), gen_config_reference.py(docs/06 생성)
 tests/              pytest (19개: 엔진 불변식, 기준 전략 동등성, 갱신·파킹·주문서·서버)
 reports/            생성된 리포트
@@ -114,12 +118,14 @@ docs/               설계 · 결과 · 운용 문서
 
 ## 결과 요약 (실제 SOXL/SOXX 2002~2026-09, 복리, 수수료 0.1%, 현금 80% 단기채 파킹)
 
-| 프로필 | CAGR | MDD | MDD 회복 | 최악 연도 | 최악의 달 | OOS 2018~ CAGR / MDD | 최소 자본 |
+| 프로필 | CAGR (USD) | **세후 KRW CAGR** | MDD | MDD 회복 | 최악 연도 | OOS 2018~ CAGR / MDD | 최소 자본 |
 |---|---|---|---|---|---|---|---|
-| 방어형 | 11.5% | −19% | 389일 | −6% | −14% | 14.7% / −18% | 2,800만원 |
-| 균형형 (기본) | 17.4% | −28% | 401일 | −10% | −22% | 24.3% / −23% | 1,400만원 (권장 2,800만) |
-| 공격형 | 20.9% | −41% | 447일 | −30% | −28% | 35.0% / −37% | 2,800만원 |
-| SOXL 보유 | 6.3% | −99.6% | 4,397일 | −95% | −70% | 34.3% / −90.5% | |
+| 방어형 | 11.5% | **8.9%** | −19% | 389일 | −6% | 14.7% / −18% | 2,800만원 |
+| 균형형 (기본) | 17.4% | **11.7%** | −28% | 401일 | −10% | 24.3% / −23% | 1,400만원 (권장 2,800만) |
+| 공격형 | 20.9% | **9.6%** | −41% | 447일 | −30% | 35.0% / −37% | 2,800만원 |
+| SOXL 보유 | 6.3% | | −99.6% | 4,397일 | −95% | 34.3% / −90.5% | |
+
+세후 KRW = 양도세 22%·이자세 15.4%·환전 0.1% 반영 (docs/02 §7). 세금은 회전이 많은 공격형을 가장 크게 깎아 세후로는 균형형이 낫다.
 
 복리 프레임에서 방어형은 영감이 된 v5 전략(예산 복리화)을 모든 지표에서 앞선다. 단리(이익 인출) 프레임에서는 균형형과 v5 가 동률 수준이다 (docs/02 §5).
 롤링 워크포워드 5개 창 검증 완료 (docs/02 §3.1).

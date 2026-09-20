@@ -65,9 +65,12 @@ def splice(bundled: pd.DataFrame | None, fresh: pd.DataFrame) -> pd.DataFrame:
     return out[~out.index.duplicated(keep="last")].sort_index()
 
 
+YF_ALIASES = {"USDKRW": "KRW=X"}   # 파일명으로 쓸 수 없는 야후 티커의 별칭
+
+
 def fetch_yf(symbol: str) -> pd.DataFrame:
     import yfinance as yf
-    df = yf.download(symbol, period="max", auto_adjust=True, progress=False)
+    df = yf.download(YF_ALIASES.get(symbol, symbol), period="max", auto_adjust=True, progress=False)
     if df is None or len(df) == 0:
         raise RuntimeError(f"yfinance returned no data for {symbol}")
     return _normalize(df)

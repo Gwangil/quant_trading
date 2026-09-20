@@ -27,6 +27,7 @@ uv run qtrade data update
 uv run qtrade backtest -c configs/soxl_balanced.yaml -o reports/live
 uv run qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper
 uv run qtrade compare            # 기준 전략(baseline/v5) 대비
+uv run qtrade tax -c configs/soxl_balanced.yaml   # 세후 원화
 uv run qtrade walkforward -c configs/soxl_balanced_cache.yaml -g configs/sweeps/walkforward_core.yaml
 uv run qtrade make-configs && python scripts/gen_config_reference.py
 ```

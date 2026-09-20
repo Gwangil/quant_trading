@@ -176,6 +176,7 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                     frac = whole / sum(l.qty for l in lots)
                 qty = sum(l.qty for l in lots) * frac
                 cost = sum(l.qty * l.cost for l in lots) * frac
+                sold_lots = [(l.qty * frac, l.cost, l.date) for l in lots]   # 세금 계산용 (수량, 매입가, 매입일)
                 fee = qty * fill_px * comm
                 proceeds = qty * fill_px - fee
                 cash += proceeds
@@ -191,7 +192,7 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                         if l.qty < 1e-9:
                             b.lots.remove(l)
                 trades.append(dict(date=date, basket=b.id, side="SELL", kind=o.kind, qty=qty, price=fill_px,
-                                   value=qty * fill_px, fee=fee, pnl=proceeds - cost, reason=o.reason))
+                                   value=qty * fill_px, fee=fee, pnl=proceeds - cost, reason=o.reason, lots=sold_lots))
         pending = []
 
         # ---- 2) MOC 청산 완료 바스켓 닫기 ----
@@ -200,8 +201,10 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                 strat.close_basket(b, date, i, b.close_reason or "liquidated")
 
         # ---- 3) 현금 이자 (파킹 비율만큼) ----
+        interest = 0.0
         if daily_yield_arr[i]:
-            cash *= 1 + daily_yield_arr[i] * cfg.cash_yield_fraction
+            interest = cash * daily_yield_arr[i] * cfg.cash_yield_fraction
+            cash += interest
 
         # ---- 4) 평가 ----
         invested = sum(b.market_value(px) for b in strat.active_baskets())
@@ -231,7 +234,7 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                 t = min(1.0, (dd_now - rk.dd_scale_start) / max(rk.dd_scale_floor - rk.dd_scale_start, 1e-9))
                 size_mult = 1.0 - (1.0 - rk.dd_scale_min_mult) * t
         rows.append(dict(date=date, close=px, ref_close=df["ref_close"].iat[i], vol=vol[i], bull=bull, halted=halted,
-                         exposure_cap=exposure_cap, size_mult=size_mult,
+                         exposure_cap=exposure_cap, size_mult=size_mult, interest=interest,
                          cash=cash, invested=invested, equity=equity, n_active=n_active,
                          exposure=invested / equity if equity > 0 else 0.0))
 
@@ -242,7 +245,7 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
     frame = pd.DataFrame(rows).set_index("date")
     eq = frame["equity"].rename("equity")
     trades_df = pd.DataFrame(trades) if trades else pd.DataFrame(
-        columns=["date", "basket", "side", "kind", "qty", "price", "value", "fee", "pnl", "reason"])
+        columns=["date", "basket", "side", "kind", "qty", "price", "value", "fee", "pnl", "reason", "lots"])
     last_px = close[n - 1]
     brows = []
     for b in strat.baskets:

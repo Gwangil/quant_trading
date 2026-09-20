@@ -39,6 +39,17 @@ def _orders(a):
     print(render(orders, state, res))
 
 
+def _tax(a):
+    from .engine import run_backtest
+    from .tax import write, render, TaxParams
+    cfg = load_config(a.config)
+    if a.capital: cfg.initial_capital = a.capital
+    res = run_backtest(cfg)
+    params = TaxParams(capital_gains_rate=a.rate, basic_deduction_krw=a.deduction, dividend_rate=a.dividend_rate, fx_spread_pct=a.fx_spread)
+    out = write(res, a.out, a.name or cfg.name, params)
+    print(render(out, a.name or cfg.name)); print(f"-> {Path(a.out) / (a.name or cfg.name)}_tax.md")
+
+
 def _serve(a):
     import logging
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -106,6 +117,12 @@ def main(argv=None):
     o.add_argument("--env", default=None, choices=["paper", "real"], help="auto_trade 주문서 JSON 의 집행 환경")
     o.add_argument("--format", default="all", choices=["kis", "meritz", "all"], help="집행기 형식 (-o 지정 시 저장)")
     o.set_defaults(fn=_orders)
+    t = sp.add_parser("tax", help="세후 원화 지표 (달러/원화/세후 원화 나란히)")
+    t.add_argument("-c", "--config", required=True); t.add_argument("-o", "--out", default="reports/tax"); t.add_argument("-n", "--name", default=None)
+    t.add_argument("--capital", type=float, default=None, help="초기자본(USD) 덮어쓰기 — 기본공제 250만원의 상대 크기가 달라짐")
+    t.add_argument("--rate", type=float, default=0.22); t.add_argument("--deduction", type=float, default=2_500_000)
+    t.add_argument("--dividend-rate", type=float, default=0.154); t.add_argument("--fx-spread", type=float, default=0.001)
+    t.set_defaults(fn=_tax)
     sv = sp.add_parser("serve", help="주문서 발급 HTTP 서버 (집행기 스케줄러가 호출)")
     sv.add_argument("--host", default="127.0.0.1"); sv.add_argument("--port", type=int, default=8787)
     sv.add_argument("--token", default=None, help="X-Token 헤더 / ?token= 공유 비밀")
@@ -115,7 +132,7 @@ def main(argv=None):
     d = sp.add_parser("data", help="시세 데이터 관리")
     dsp = d.add_subparsers(dest="data_cmd", required=True)
     du = dsp.add_parser("update", help="yfinance 최신 일봉 + 번들 스냅샷 이어붙여 data/cache 에 저장")
-    du.add_argument("symbols", nargs="*", default=["SOXL", "SOXX"])
+    du.add_argument("symbols", nargs="*", default=["SOXL", "SOXX", "USDKRW"], help="USDKRW 는 야후 KRW=X (원/달러)")
     du.add_argument("--cache-dir", default="data/cache")
     du.add_argument("--bundled-dir", default="data/bundled")
     du.set_defaults(fn=_data_update)
