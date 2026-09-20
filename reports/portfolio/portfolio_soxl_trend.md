@@ -1,4 +1,4 @@
-# portfolio_soxl
+# portfolio_soxl_trend
 
 - 슬리브: basket 60%, trend 40%, 리밸런싱: yearly
 

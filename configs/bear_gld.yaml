@@ -1,0 +1,10 @@
+# 약세 국면 슬리브: SOXX < 200일선(−2% 밴드) 일 때 GLD 보유, 그 외 현금 파킹. 바스켓이 비워 두는 약세장 자본의 용도 검증
+kind: regime_switch
+name: bear_gld
+initial_capital: 100000
+cash_yield_annual: TBILL3M
+cash_yield_fraction: 0.8
+cash_yield_spread: -0.0015
+data: {symbol: GLD, reference: SOXX, source: csv, start: null, end: null, backfill: false, synthetic: null}
+rules: {hold_when: bear, ma_window: 200, band: 0.02, weight: 1.0, target_vol_annual: null, rebalance_band: 0.15, vol_window: 20, min_hold_days: 5}
+costs: {commission_pct: 0.001, slippage_pct: 0.0, integer_shares: false}

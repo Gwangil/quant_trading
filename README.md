@@ -80,7 +80,7 @@ qtrade tax -c configs/soxl_balanced.yaml -o reports/tax
 
 # 6-2) 다전략 포트폴리오 (슬리브 결합·상관·통합 주문서)
 qtrade backtest -c configs/trend_soxl_cache.yaml -o reports
-qtrade portfolio configs/portfolio_soxl.yaml
+qtrade portfolio configs/portfolio_soxl_gld.yaml
 
 # 7) 최소 시작 자산 검토 (정수 주 제약)
 python scripts/min_capital.py --fx 1400
@@ -94,8 +94,9 @@ python scripts/min_capital.py --fx 1400
 configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에서 생성
   soxl_{defensive,balanced,aggressive}.yaml         실전 (yfinance)
   soxl_*_cache.yaml                                  data/cache 전 구간(2001~) 연구용 — 주 검증 데이터
-  trend_soxl*.yaml                                   추세추종 슬리브
-  portfolio_soxl.yaml                                다전략 결합 예시
+  trend_soxl*.yaml, bear_gld.yaml, gld_always.yaml   추세·국면 스위치 슬리브 (kind: trend | regime_switch)
+  tqqq/upro/tecl_balanced_cache.yaml                 종목 확장 검증
+  portfolio_soxl_gld.yaml                            권장 다전략 (바스켓 70 + GLD 30), portfolio_soxl_trend.yaml 은 기각 예시
   nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
   sweeps/                                            탐색 그리드
 data/cache/         qtrade data update 결과 (SOXL/SOXX 2001~최신, git 추적: git add -f)
@@ -110,7 +111,7 @@ src/qtrade/
   strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (바스켓 전략의 핵심)
   engine.py         바스켓 전용 LOC/MOC 종가 체결 엔진
   sim.py            범용 포지션 시뮬레이터 (추세 등 kind 전략용)
-  strategies/       kind 레지스트리(__init__), trend.py 추세추종
+  strategies/       kind 레지스트리(__init__), trend.py 추세추종, regime_switch.py 국면 스위치
   portfolio.py      슬리브 결합·상관·통합 주문서 (qtrade portfolio)
   metrics.py        단리/CAGR/MDD/회복기간/연도별 수익률
   report.py         마크다운 + 차트 리포트
@@ -136,7 +137,9 @@ docs/               설계 · 결과 · 운용 문서
 | 공격형 | 20.9% | **9.6%** | −41% | 447일 | −30% | 35.0% / −37% | 2,800만원 |
 | SOXL 보유 | 6.3% | | −99.6% | 4,397일 | −95% | 34.3% / −90.5% | |
 
-세후 KRW = 양도세 22%·이자세 15.4%·환전 0.1% 반영 (docs/02 §7). 세금은 회전이 많은 공격형을 가장 크게 깎아 세후로는 균형형이 낫다.
+세후 KRW = 양도세 22%·이자세 15.4%·환전 0.1% 반영 (docs/02 §7, 참고용). 세금은 회전이 많은 공격형을 가장 크게 깎아 세후로는 균형형이 낫다.
+
+**권장 다전략 구성** `configs/portfolio_soxl_gld.yaml`: 균형형 바스켓 70% + GLD 상시 30% (연 1회 리밸런싱) → 2005~2026 CAGR 16.3%, MDD −19%, 최악 연도 −6%, Calmar 0.86 (바스켓 단독 0.64). 근거 docs/07 §4.3.
 
 복리 프레임에서 방어형은 영감이 된 v5 전략(예산 복리화)을 모든 지표에서 앞선다. 단리(이익 인출) 프레임에서는 균형형과 v5 가 동률 수준이다 (docs/02 §5).
 롤링 워크포워드 5개 창 검증 완료 (docs/02 §3.1).

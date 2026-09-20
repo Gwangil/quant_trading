@@ -1,35 +1,29 @@
-# 자동 생성 (qtrade make-configs). 수정은 src/qtrade/profiles.py 에서.
-# 방어형: 슬라이스 8 + 매수 하락률 0.5σ (롤링 워크포워드 5개 창에서 안정 선정된 조합). MDD −20%대, 최악 연도 −6%
-# 데이터: proxy (NASDAQ3X/NASDAQ, bundled)
-name: nasdaq3x_defensive
+# 종목 확장 검증: 균형형 규칙 그대로 TECL/XLK (상장 전 구간은 XLK×3 합성 백필). 결과 docs/07 §4.2
+name: tecl_balanced_cache
 initial_capital: 100000
 cash_yield_annual: TBILL3M
 cash_yield_fraction: 0.8
 cash_yield_spread: -0.0015
 data:
-  symbol: NASDAQ3X
-  reference: NASDAQ
-  source: bundled
+  symbol: TECL
+  reference: XLK
+  source: csv
   cache_dir: data/cache
   bundled_dir: data/bundled
   start: null
   end: null
-  synthetic:
-    leverage: 3
-    beta: 1.0
-    expense_ratio: 0.0095
-    financing_rate: 0.02
-  backfill: false
+  synthetic: null
+  backfill: true
 baskets:
   count: 4
-  slices: 8
+  slices: 6
   min_days_between_opens: 3
   min_budget_frac: 0.25
   budget_frac: null
   budget_mode: equity
 entry:
   vol_window: 20
-  dip_vol_mult: 0.5
+  dip_vol_mult: 0.25
   min_dip_pct: 0.0
   max_dip_pct: 0.06
   first_slice_dip_pct: 0.0

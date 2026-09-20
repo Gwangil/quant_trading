@@ -1,0 +1,6 @@
+symbol,side,kind,limit,qty,sleeves
+SOXL,BUY,LOC,121.46,2905,basket_soxl
+SOXL,SELL,LOC,123.67,136,basket_soxl
+SOXL,SELL,LOC,124.04,1251,basket_soxl
+SOXL,SELL,LOC,129.38,63,basket_soxl
+SOXL,SELL,LOC,138.34,54,basket_soxl

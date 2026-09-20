@@ -74,3 +74,4 @@ costs:
   commission_pct: 0.001
   slippage_pct: 0.0
   integer_shares: false
+kind: basket_loc

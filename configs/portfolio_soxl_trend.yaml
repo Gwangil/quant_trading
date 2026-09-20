@@ -1,5 +1,5 @@
-# 다전략 예시: 균형형 바스켓(평균회귀) 60% + 추세추종 40%, 연 1회 슬리브 리밸런싱
-name: portfolio_soxl
+# (기각 예시) 균형형 바스켓 60% + 추세추종 40%. 같은 종목 위라 분산 효과 없음 — docs/07 §4.1
+name: portfolio_soxl_trend
 initial_capital: 100000
 rebalance: yearly
 sleeves:

@@ -65,3 +65,17 @@ def test_portfolio_combines_sleeves_and_orders(tmp_path):
     assert out["corr"].shape == (2, 2)
     o = combined_orders(out)
     assert set(o.columns) >= {"symbol", "side", "kind", "limit", "qty", "sleeves"}
+
+
+def test_regime_switch_holds_only_in_selected_regime():
+    from qtrade.strategies.regime_switch import SwitchConfig, SwitchRules, run_switch
+    idx = pd.bdate_range("2015-01-01", periods=700)
+    ref = np.concatenate([np.linspace(100, 150, 350), np.linspace(150, 80, 350)])          # 강세 → 약세
+    data = pd.DataFrame({"close": np.linspace(50, 60, 700), "ref_close": ref}, index=idx)   # 자산은 완만 상승
+    def cfg(hw):
+        return SwitchConfig(name="s", initial_capital=10_000, cash_yield_annual=0.0, data=DataConfig(source="csv"),
+                            rules=SwitchRules(hold_when=hw, ma_window=50, band=0.0, min_hold_days=1))
+    bear = run_switch(cfg("bear"), data).frame; bull = run_switch(cfg("bull"), data).frame; alw = run_switch(cfg("always"), data).frame
+    assert bear["exposure"].iloc[-1] > 0.9 and bear["exposure"].iloc[200] == 0.0
+    assert bull["exposure"].iloc[200] > 0.9 and bull["exposure"].iloc[-1] == 0.0
+    assert (alw["exposure"].iloc[60:] > 0.9).all()

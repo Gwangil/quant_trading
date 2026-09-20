@@ -45,8 +45,9 @@ def generate(cfg: StrategyConfig, out_dir: str | Path | None = None, env: str | 
              max_stale_days: int = 5, fmt: str = "all") -> tuple[pd.DataFrame, pd.DataFrame, BacktestResult]:
     """주문표 생성. fmt: kis(auto_trade JSON, env 필요) | meritz(rpa_claude CSV) | all."""
     from .updater import staleness_days
-    from .strategies.trend import TrendConfig, run_trend
-    res = run_trend(cfg) if isinstance(cfg, TrendConfig) else run_backtest(cfg)
+    from .strategies import KINDS
+    kind = cfg.to_dict().get('kind', 'basket_loc')
+    res = KINDS[kind]['run'](cfg)
     stale = staleness_days(res.frame.index[-1])
     if stale > max_stale_days:
         print(f"⚠ 데이터가 오래됨: 마지막 종가 {res.frame.index[-1].date()} (확정 세션 기준 {stale}일 전). "

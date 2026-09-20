@@ -121,7 +121,7 @@ class StrategyConfig:
 
     # ---- 직렬화 ----
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self); d["kind"] = "basket_loc"; return d
 
     def copy(self) -> "StrategyConfig":
         return copy.deepcopy(self)
@@ -161,6 +161,9 @@ def _build(cls, raw: dict | None):
 
 def config_from_dict(raw: dict) -> StrategyConfig:
     raw = dict(raw)
+    kind = raw.pop("kind", "basket_loc")
+    if kind != "basket_loc":
+        raise KeyError(f"StrategyConfig 는 kind=basket_loc 전용입니다 (받은 값: {kind}). strategies.load_any 를 쓰세요.")
     kwargs = {}
     for key, cls in _NESTED.items():
         kwargs[key] = _build(cls, raw.pop(key, None))

@@ -2,6 +2,7 @@
 
   basket_loc  분할 바스켓 LOC (engine.py, config.StrategyConfig) — 기본
   trend       추세추종 + 변동성 타게팅 (strategies/trend.py)
+  regime_switch  기준지수 국면(약세/강세)에 따라 자산 보유 ↔ 현금 (strategies/regime_switch.py)
 새 전략 추가: strategies/<name>.py 에 Config dataclass + Strategy(prepare/orders) 구현 후 아래 KINDS 에 등록.
 """
 from __future__ import annotations
@@ -42,7 +43,18 @@ def _trend_run(cfg, data=None):
     return run_trend(cfg, data)
 
 
+def _switch_config(raw):
+    from .regime_switch import switch_config_from_dict
+    return switch_config_from_dict(raw)
+
+
+def _switch_run(cfg, data=None):
+    from .regime_switch import run_switch
+    return run_switch(cfg, data)
+
+
 KINDS = {
     "basket_loc": {"config": _basket_config, "run": _basket_run, "desc": "분할 바스켓 LOC (하락 매수·반등 매도, 평균회귀형)"},
     "trend": {"config": _trend_config, "run": _trend_run, "desc": "추세추종: 기준지수 이평 위 + 모멘텀 양이면 보유, 변동성 타게팅, 추적 손절 (추세형)"},
+    "regime_switch": {"config": _switch_config, "run": _switch_run, "desc": "국면 스위치: 기준지수 약세(또는 강세) 국면에만 자산 보유 (약세 국면 자산 검증용)"},
 }
