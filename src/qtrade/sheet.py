@@ -50,7 +50,7 @@ def build_sheet(res: BacktestResult, env: str = "paper", strategy_name: str | No
             "ord_type": kind, "reason": "+".join(reasons), "tag": "basket-" + ",".join(str(b) for b in baskets),
         })
     positions = []
-    for b in res.strategy.active_baskets():
+    for b in (res.strategy.active_baskets() if res.strategy is not None else []):
         positions.append({"id": b.id, "active": True, "shares": round(b.shares(), 4),
                           "avg_cost": round(b.avg_cost(), 4) if b.avg_cost() else 0.0,
                           "cash": round(b.cash_avail(), 2), "pnl_pct": round(b.ret(px) * 100, 2),

@@ -39,7 +39,7 @@ def render_markdown(res: BacktestResult, m: dict | None = None, title: str | Non
     m = m or summarize(res)
     cfg = res.cfg
     sym, ref = cfg.data.symbol, cfg.data.reference
-    if cfg.data.synthetic is not None:
+    if getattr(cfg.data, "synthetic", None) is not None:
         syn = cfg.data.synthetic
         beta = f"×{syn.beta:g}" if syn.beta != 1.0 else ""
         sym = f"{ref}{beta}×{syn.leverage:g} 합성"
@@ -68,6 +68,9 @@ def render_markdown(res: BacktestResult, m: dict | None = None, title: str | Non
     lines += ["## 연도별 수익률", "| 연도 | 전략 | " + sym + " | " + ref + " |", "|---|---|---|---|"]
     for y in yr:
         lines.append(f"| {y} | {fmt_pct(yr[y])} | {fmt_pct(yb.get(y))} | {fmt_pct(yr2.get(y))} |")
+    if not hasattr(cfg, "baskets"):
+        lines += ["", "## 주요 설정", f"- {cfg.to_dict().get('kind', '?')}: {cfg.rules}", f"- 비용: 수수료 {cfg.costs.commission_pct:.2%}/편도, 현금 파킹 {cfg.cash_yield_annual} × {cfg.cash_yield_fraction:.0%}", ""]
+        return "\n".join(lines)
     lines += ["", "## 주요 설정",
               f"- 바스켓 {cfg.baskets.count}개 × 슬라이스 {cfg.baskets.slices}회, 오픈 간격 {cfg.baskets.min_days_between_opens}일",
               f"- 매수: 전일종가 × (1 − clamp({cfg.entry.dip_vol_mult}×σ, {cfg.entry.min_dip_pct:.0%}, {cfg.entry.max_dip_pct:.0%})), 첫 슬라이스 하락률 {cfg.entry.first_slice_dip_pct:.1%}, 물타기 가속 {cfg.entry.depth_boost}",

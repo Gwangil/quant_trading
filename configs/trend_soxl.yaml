@@ -1,0 +1,11 @@
+# 추세추종 슬리브 (SOXL): SOXX 200일선 위(청산 밴드 3%) + 120일 모멘텀 양 → 보유, 연 25% 변동성 타게팅, 고점 대비 −25% 추적 손절. 그리드 216조합 IS Calmar 최적 (reports/sweeps/trend1.csv)
+kind: trend
+name: trend_soxl
+initial_capital: 100000
+cash_yield_annual: TBILL3M
+cash_yield_fraction: 0.8
+cash_yield_spread: -0.0015
+data: {symbol: SOXL, reference: SOXX, source: csv, start: "2011-01-03", end: null, backfill: false, synthetic: null}
+rules: {ma_window: 200, exit_band: 0.03, mom_window: 120, exit_on_mom_negative: false, trail_pct: 0.25, vol_window: 20,
+        target_vol_annual: 0.25, max_weight: 1.0, rebalance_band: 0.15, cooldown_days: 5}
+costs: {commission_pct: 0.001, slippage_pct: 0.0, integer_shares: false}

@@ -1,7 +1,8 @@
-# quant_trading — 분할 바스켓 LOC 전략 (레버리지 ETF 일 1회 종가 주문)
+# quant_trading — 레버리지 ETF 다전략 개발·검증·주문서 발급 (일 1회 종가 주문)
 
 > 미국 레버리지 ETF(기본: SOXL, 기준지수 SOXX)를 대상으로 **하루 한 번 종가 주문(LOC/MOC)** 만으로 운용하는
-> 퀀트 전략의 설계 · 백테스트 · 실전 주문표 생성 도구입니다.
+> 퀀트 전략의 설계 · 백테스트 · 주문서 발급 도구입니다. 실제 주문은 집행기(auto_trade / rpa_claude)가 맡습니다.
+> 전략은 `kind` 로 등록되는 플러그인이며(분할 바스켓 LOC, 추세추종), 슬리브로 묶어 다전략 포트폴리오를 만듭니다 (docs/07).
 > 이전 마이크로서비스 프로젝트는 `backup/old-main-msa` 브랜치에 보존되어 있습니다.
 
 ## 전략 한 줄 요약
@@ -18,6 +19,7 @@
 | [docs/04_roadmap.md](docs/04_roadmap.md) | 작업 요약·진행 상태·다음 단계 (작업 재개 시 여기부터) |
 | [docs/05_execution_integration.md](docs/05_execution_integration.md) | 집행기(KIS auto_trade / Meritz rpa_claude) 주문서 규격·발급 방법·스케줄·선택 기준 |
 | [docs/06_config_reference.md](docs/06_config_reference.md) | 설정 옵션 전체와 채택/기각 상태 (자동 생성) |
+| [docs/07_multi_strategy.md](docs/07_multi_strategy.md) | 역할 경계, 다전략 구조, 전략 추가 절차, 확장 로드맵, 슬리브 검증 결과 |
 | [CLAUDE.md](CLAUDE.md) | 개발 규칙 |
 
 ## 설치
@@ -73,8 +75,12 @@ qtrade make-configs
 # 6) 영감이 된 baseline / v5 와 정면 비교표 생성
 qtrade compare
 
-# 6-1) 세후 원화 지표 (달러 / 원화 / 세후 원화)
+# 6-1) 세후 원화 지표 (참고용; 의사결정은 세전 달러)
 qtrade tax -c configs/soxl_balanced.yaml -o reports/tax
+
+# 6-2) 다전략 포트폴리오 (슬리브 결합·상관·통합 주문서)
+qtrade backtest -c configs/trend_soxl_cache.yaml -o reports
+qtrade portfolio configs/portfolio_soxl.yaml
 
 # 7) 최소 시작 자산 검토 (정수 주 제약)
 python scripts/min_capital.py --fx 1400
@@ -88,6 +94,8 @@ python scripts/min_capital.py --fx 1400
 configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에서 생성
   soxl_{defensive,balanced,aggressive}.yaml         실전 (yfinance)
   soxl_*_cache.yaml                                  data/cache 전 구간(2001~) 연구용 — 주 검증 데이터
+  trend_soxl*.yaml                                   추세추종 슬리브
+  portfolio_soxl.yaml                                다전략 결합 예시
   nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
   sweeps/                                            탐색 그리드
 data/cache/         qtrade data update 결과 (SOXL/SOXX 2001~최신, git 추적: git add -f)
@@ -99,8 +107,11 @@ src/qtrade/
   reference.py      기준 전략(baseline/v5) 재구현   compare.py   기준 전략 vs 프로필 비교
   tax.py            세후 원화 지표 (양도세·이자세·환율, qtrade tax)
   data.py           데이터 로딩, 레버리지 합성, 백필
-  strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (전략의 핵심)
-  engine.py         LOC/MOC 종가 체결 시뮬레이션, 자산·거래 기록
+  strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (바스켓 전략의 핵심)
+  engine.py         바스켓 전용 LOC/MOC 종가 체결 엔진
+  sim.py            범용 포지션 시뮬레이터 (추세 등 kind 전략용)
+  strategies/       kind 레지스트리(__init__), trend.py 추세추종
+  portfolio.py      슬리브 결합·상관·통합 주문서 (qtrade portfolio)
   metrics.py        단리/CAGR/MDD/회복기간/연도별 수익률
   report.py         마크다운 + 차트 리포트
   sweep.py          그리드 탐색 (멀티프로세스, 학습/검증 분리)

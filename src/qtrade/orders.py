@@ -30,7 +30,7 @@ def orders_table(res: BacktestResult, lot_size: int = 1) -> pd.DataFrame:
 def state_table(res: BacktestResult) -> pd.DataFrame:
     px = float(res.frame["close"].iloc[-1])
     rows = []
-    for b in res.strategy.active_baskets():
+    for b in (res.strategy.active_baskets() if res.strategy is not None else []):
         rows.append(dict(basket=b.id, opened=b.opened.date(), hold_days=len(res.frame) - 1 - res.frame.index.get_loc(b.opened)
                          if b.opened in res.frame.index else None,
                          budget=round(b.budget, 2), shares=round(b.shares(), 4),
@@ -45,7 +45,8 @@ def generate(cfg: StrategyConfig, out_dir: str | Path | None = None, env: str | 
              max_stale_days: int = 5, fmt: str = "all") -> tuple[pd.DataFrame, pd.DataFrame, BacktestResult]:
     """주문표 생성. fmt: kis(auto_trade JSON, env 필요) | meritz(rpa_claude CSV) | all."""
     from .updater import staleness_days
-    res = run_backtest(cfg)
+    from .strategies.trend import TrendConfig, run_trend
+    res = run_trend(cfg) if isinstance(cfg, TrendConfig) else run_backtest(cfg)
     stale = staleness_days(res.frame.index[-1])
     if stale > max_stale_days:
         print(f"⚠ 데이터가 오래됨: 마지막 종가 {res.frame.index[-1].date()} (확정 세션 기준 {stale}일 전). "

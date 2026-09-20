@@ -9,10 +9,10 @@ from .config import load_config
 
 
 def _backtest(a):
-    from .engine import run_backtest
+    from .strategies import load_any, run_any
     from .report import write_report, render_markdown
-    cfg = load_config(a.config)
-    res = run_backtest(cfg)
+    cfg, kind = load_any(a.config)
+    res = run_any(cfg, kind)
     m = write_report(res, a.out, a.name, a.title)
     print(render_markdown(res, m, a.title))
     print(f"-> {Path(a.out) / (a.name or cfg.name)}.md / .png")
@@ -34,7 +34,8 @@ def _sweep(a):
 
 def _orders(a):
     from .orders import generate, render
-    cfg = load_config(a.config)
+    from .strategies import load_any
+    cfg, _kind = load_any(a.config)
     orders, state, res = generate(cfg, a.out, env=a.env, fmt=a.format)
     print(render(orders, state, res))
 
@@ -48,6 +49,13 @@ def _tax(a):
     params = TaxParams(capital_gains_rate=a.rate, basic_deduction_krw=a.deduction, dividend_rate=a.dividend_rate, fx_spread_pct=a.fx_spread)
     out = write(res, a.out, a.name or cfg.name, params)
     print(render(out, a.name or cfg.name)); print(f"-> {Path(a.out) / (a.name or cfg.name)}_tax.md")
+
+
+def _portfolio(a):
+    from .portfolio import write, render, combined_orders
+    out = write(a.spec, a.out)
+    print(render(out, out["spec"].get("name", "portfolio")))
+    print("## 통합 주문서 (다음 거래일)\n" + combined_orders(out).to_string(index=False))
 
 
 def _serve(a):
@@ -123,6 +131,9 @@ def main(argv=None):
     t.add_argument("--rate", type=float, default=0.22); t.add_argument("--deduction", type=float, default=2_500_000)
     t.add_argument("--dividend-rate", type=float, default=0.154); t.add_argument("--fx-spread", type=float, default=0.001)
     t.set_defaults(fn=_tax)
+    pf = sp.add_parser("portfolio", help="다전략 슬리브 결합 백테스트 + 통합 주문서")
+    pf.add_argument("spec", help="포트폴리오 YAML (sleeves: [{config, weight}])"); pf.add_argument("-o", "--out", default="reports/portfolio")
+    pf.set_defaults(fn=_portfolio)
     sv = sp.add_parser("serve", help="주문서 발급 HTTP 서버 (집행기 스케줄러가 호출)")
     sv.add_argument("--host", default="127.0.0.1"); sv.add_argument("--port", type=int, default=8787)
     sv.add_argument("--token", default=None, help="X-Token 헤더 / ?token= 공유 비밀")

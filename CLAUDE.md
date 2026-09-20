@@ -1,8 +1,9 @@
 # CLAUDE.md — 개발 규칙 (AI 에이전트·사람 공통)
 
 ## 프로젝트가 하는 일
-레버리지 ETF(SOXL) 분할 바스켓 LOC 전략의 **백테스트·검증·주문서 발급**. 실제 주문은 내지 않는다
-(집행은 auto_trade(KIS API) / rpa_claude(Meritz RPA) 가 주문서 파일을 받아서 한다 — docs/05).
+레버리지 ETF 전략(분할 바스켓 LOC, 추세추종 등)의 **개발·검증·주문서 발급**. 실제 주문·체결 대사·스케줄 실행은 하지 않는다
+(집행기 auto_trade(KIS API) / rpa_claude(Meritz RPA) 가 주문서 파일을 받아서 한다 — docs/05, 역할 경계 docs/07 §1).
+성과 판단은 세전 달러 기준.
 
 ## 시작할 때 읽을 것
 1. `docs/04_roadmap.md` — 진행 상태·열린 과제
@@ -18,6 +19,7 @@
 - 미래참조 금지: 당일 종가 판단은 당일 종가까지의 정보만. 주문은 다음 거래일 종가 체결(LOC/MOC).
 - 집행기 주문서 형식(KIS JSON v1, Meritz CSV)은 집행기 저장소의 규격이 정답이다. 바꾸려면 그쪽 문서를 먼저 확인.
 - `qtrade serve` 는 LAN 전용. 인증은 공유 토큰뿐이다.
+- 새 전략은 `src/qtrade/strategies/` 에 kind 로 등록하고(docs/07 §2), 채택 기준은 바스켓과 동일(IS/OOS, 이웃 절벽 없음, 기존 슬리브와 상관 < 0.5).
 - 커밋 전 `pytest -q` 통과. 리포트(`reports/`)는 결과 문서의 근거이므로 재생성 후 함께 커밋.
 
 ## 자주 쓰는 명령
@@ -27,7 +29,8 @@ uv run qtrade data update
 uv run qtrade backtest -c configs/soxl_balanced.yaml -o reports/live
 uv run qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper
 uv run qtrade compare            # 기준 전략(baseline/v5) 대비
-uv run qtrade tax -c configs/soxl_balanced.yaml   # 세후 원화
+uv run qtrade tax -c configs/soxl_balanced.yaml   # 세후 원화 (참고용)
+uv run qtrade portfolio configs/portfolio_soxl.yaml  # 다전략 결합 + 통합 주문서
 uv run qtrade walkforward -c configs/soxl_balanced_cache.yaml -g configs/sweeps/walkforward_core.yaml
 uv run qtrade make-configs && python scripts/gen_config_reference.py
 ```
