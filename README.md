@@ -17,11 +17,31 @@
 
 ## 설치
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[data,dev]"      # yfinance 포함
-pytest -q
+uv 사용 (권장, Windows/macOS/Linux 동일):
+
+```powershell
+uv venv
+uv pip install -e ".[data,dev]"      # yfinance 포함
+uv run pytest -q
+uv run qtrade --help
 ```
+
+기본 파이썬 사용:
+
+```powershell
+# Windows PowerShell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1        # 실행 정책 오류 시: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+python -m pip install -e ".[data,dev]"
+```
+
+```bash
+# macOS / Linux
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[data,dev]"
+```
+
+설치 후 `qtrade` 명령이 생긴다(uv 는 `uv run qtrade`). `python -m qtrade ...` 로도 실행된다.
 
 ## 사용법
 

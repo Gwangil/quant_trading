@@ -3,7 +3,7 @@
 ## 최초 1회: 데이터 준비
 
 ```bash
-pip install -e ".[data,dev]"
+uv venv && uv pip install -e ".[data,dev]"   # 설치 방법은 README 참조 (Windows 는 uv run qtrade ...)
 qtrade data update            # SOXL, SOXX 를 yfinance 로 받아 번들 스냅샷(2001~)과 이어붙여 data/cache/ 에 저장
 qtrade backtest -c configs/soxl_balanced.yaml -o reports/live   # 최신 데이터로 프로필 재확인 (docs/02 와 비교)
 ```
