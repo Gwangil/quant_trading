@@ -19,9 +19,9 @@ qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper   # �
 ```
 
 - 첫 줄에 `⚠ 데이터가 오래됨` 이 보이면 갱신이 안 된 것이다. 오래된 데이터로 만든 주문표는 쓰지 않는다.
-- `--env paper|real` 을 주면 auto_trade 주문서 규격(v1) JSON 이 함께 저장된다:
-  `reports/orders/orders_{env}_SOXL_soxl_balanced_{날짜}.json`. auto_trade 에서 `uv run auto-trade order execute --sheet <파일>` 로 집행한다
-  (모의투자는 LOC/MOC 를 지정가로 자동 대체, 실전은 LOC/MOC 그대로). `meta.env` 가 집행 환경과 다르면 집행기가 중단한다.
+- `-o` 를 주면 집행기용 파일이 함께 저장된다(`--format kis|meritz|all`, 기본 all):
+  KIS auto_trade JSON `orders_{env}_SOXL_..json`(`--env` 필요), Meritz rpa_claude CSV `orders_meritz_SOXL_..csv`.
+  집행기 연동과 스케줄, HTTP 발급(`qtrade serve`)은 docs/05 참조.
 
 출력 예:
 

@@ -61,3 +61,43 @@ def test_order_sheet_matches_auto_trade_spec(tmp_path):
         assert o["symbol"] == "SOXL"
     path = save_sheet(sheet, tmp_path)
     assert path.name.startswith("orders_paper_SOXL_") and json.loads(path.read_text(encoding="utf-8"))["meta"]["symbol"] == "SOXL"
+
+
+def test_meritz_csv_rows_follow_rpa_claude_spec():
+    from qtrade.sheet import build_meritz_rows, meritz_csv_text, MERITZ_COLUMNS
+    data = make_data(seed=2)
+    res = run_backtest(base_cfg(**{"data.symbol": "SOXL", "exit.max_hold_days": 10, "exit.hard_max_hold_days": 12}), data)
+    rows = build_meritz_rows(res)
+    assert rows, "pending orders expected"
+    for r in rows:
+        assert r["side"] in ("buy", "sell") and r["symbol"] == "SOXL" and r["quantity"] > 0
+        assert r["order_type"] in ("LOC", "MOC")
+        assert (r["price"] == "") == (r["order_type"] == "MOC")
+    text = meritz_csv_text(rows)
+    assert text.splitlines()[0] == ",".join(MERITZ_COLUMNS)
+
+
+def test_serve_endpoints(tmp_path):
+    import threading, urllib.request, json as _json
+    from http.server import ThreadingHTTPServer
+    from qtrade.serve import OrderService, make_handler
+    from qtrade.config import save_config
+    cfg = base_cfg(**{"data.symbol": "SOXL", "data.reference": "SOXX", "data.source": "csv", "data.cache_dir": "data/cache"})
+    (tmp_path / "configs").mkdir(); save_config(cfg, tmp_path / "configs" / "soxl_t.yaml")
+    svc = OrderService(configs_dir=tmp_path / "configs", out_dir=tmp_path / "out")
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(svc, "s3cret"))
+    th = threading.Thread(target=httpd.serve_forever, daemon=True); th.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    try:
+        with pytest.raises(urllib.error.HTTPError) as ei:
+            urllib.request.urlopen(f"{base}/health?profile=t")
+        assert ei.value.code == 401
+        h = _json.loads(urllib.request.urlopen(urllib.request.Request(f"{base}/health?profile=t", headers={"X-Token": "s3cret"})).read())
+        assert h["ok"] and "last_close" in h
+        r = urllib.request.urlopen(f"{base}/orders?profile=t&format=meritz&token=s3cret")
+        assert r.headers["Content-Type"].startswith("text/csv") and r.read().decode().startswith("side,symbol")
+        k = _json.loads(urllib.request.urlopen(f"{base}/orders?profile=t&format=kis&env=paper&token=s3cret").read())
+        assert k["meta"]["env"] == "paper" and k["meta"]["symbol"] == "SOXL"
+        assert list((tmp_path / "out").glob("orders_*"))
+    finally:
+        httpd.shutdown()

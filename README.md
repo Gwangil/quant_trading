@@ -13,7 +13,8 @@
 자세한 설계 근거는 [docs/01_strategy_design.md](docs/01_strategy_design.md),
 백테스트 결과는 [docs/02_backtest_results.md](docs/02_backtest_results.md),
 실전 운용 절차는 [docs/03_live_operation.md](docs/03_live_operation.md),
-작업 요약과 로드맵은 [docs/04_roadmap.md](docs/04_roadmap.md) 를 보세요.
+작업 요약과 로드맵은 [docs/04_roadmap.md](docs/04_roadmap.md),
+집행기(KIS/Meritz) 연동과 스케줄은 [docs/05_execution_integration.md](docs/05_execution_integration.md) 를 보세요.
 
 ## 설치
 
@@ -58,8 +59,9 @@ qtrade backtest -c configs/soxl_balanced.yaml -o reports
 qtrade sweep -c configs/soxl_balanced_cache.yaml -g configs/sweeps/sweep_merge_fine.yaml -o reports/sweeps --top 20
 qtrade walkforward -c configs/soxl_balanced_cache.yaml -g configs/sweeps/walkforward_core.yaml
 
-# 4) 다음 거래일 주문표 (+ auto_trade 주문서 JSON, 모의투자용)
+# 4) 다음 거래일 주문표 (+ KIS auto_trade JSON, Meritz rpa_claude CSV)
 qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper
+qtrade serve --port 8787 --token SECRET      # 집행기가 HTTP 로 발급받는 상주 모드 (docs/05)
 
 # 5) 프로필 정의(src/qtrade/profiles.py)를 바꾼 뒤 설정 파일 재생성
 qtrade make-configs
@@ -97,7 +99,8 @@ src/qtrade/
   sweep.py          그리드 탐색 (멀티프로세스, 학습/검증 분리)
   walkforward.py    롤링 워크포워드 (창별 파라미터 재선정)
   updater.py        시세 갱신 (yfinance + 번들 스냅샷 splice, 미완성 봉 필터)
-  sheet.py          auto_trade 주문서 규격 v1 JSON 내보내기
+  sheet.py          집행기 주문서 내보내기 (KIS JSON, Meritz CSV, 동일가 합산)
+  serve.py          주문서 발급 HTTP 서버 (qtrade serve)
   orders.py         실전 주문표 생성 (전 구간 재현 방식)
   cli.py            qtrade 명령
 tests/              pytest

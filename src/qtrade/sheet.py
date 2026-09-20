@@ -15,6 +15,23 @@ from .engine import BacktestResult
 EXCHANGES = {"SOXL": "AMEX", "TQQQ": "NASD", "TECL": "AMEX", "SOXX": "NASD"}
 
 
+def aggregate_orders(pending) -> list:
+    """같은 (side, kind, 지정가) 주문을 한 건으로 합친다 — 집행기 주문 건수 절감. 반환: (side, kind, limit, qty, reasons, basket_ids)."""
+    groups: dict = {}
+    for o in pending:
+        key = (o.side, o.kind, None if o.limit is None else round(float(o.limit), 2))
+        g = groups.setdefault(key, {"qty": 0.0, "reasons": [], "baskets": []})
+        g["qty"] += o.qty
+        if o.reason not in g["reasons"]: g["reasons"].append(o.reason)
+        if o.basket_id not in g["baskets"]: g["baskets"].append(o.basket_id)
+    out = []
+    for (side, kind, lim), g in groups.items():
+        out.append((side, kind, lim, g["qty"], g["reasons"], g["baskets"]))
+    # 매도 먼저(현금 확보), 그다음 매수; 같은 쪽은 가격순
+    out.sort(key=lambda x: (0 if x[0] == "SELL" else 1, x[2] if x[2] is not None else -1))
+    return out
+
+
 def build_sheet(res: BacktestResult, env: str = "paper", strategy_name: str | None = None,
                 inception: str | None = None, exchange: str | None = None) -> dict:
     cfg = res.cfg
@@ -23,14 +40,14 @@ def build_sheet(res: BacktestResult, env: str = "paper", strategy_name: str | No
     last = f.index[-1]
     px = float(f["close"].iloc[-1])
     orders = []
-    for o in res.pending_orders:
-        qty = int(o.qty)
+    for side, kind, lim, q, reasons, baskets in aggregate_orders(res.pending_orders):
+        qty = int(q)
         if qty <= 0:
             continue
         orders.append({
-            "side": o.side, "symbol": sym, "qty": qty,
-            "ref_price": round(float(o.limit) if o.limit is not None else px, 2),
-            "ord_type": o.kind, "reason": o.reason, "tag": f"basket-{o.basket_id}",
+            "side": side, "symbol": sym, "qty": qty,
+            "ref_price": round(lim if lim is not None else px, 2),
+            "ord_type": kind, "reason": "+".join(reasons), "tag": "basket-" + ",".join(str(b) for b in baskets),
         })
     positions = []
     for b in res.strategy.active_baskets():
@@ -65,4 +82,41 @@ def save_sheet(sheet: dict, out_dir: str | Path) -> Path:
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     path = out / f"orders_{m['env']}_{m['symbol']}_{m['strategy']}_{m['trade_date']}.json"
     path.write_text(json.dumps(sheet, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+# ---------------- Meritz (rpa_claude) orders.csv ----------------
+MERITZ_COLUMNS = ["side", "symbol", "quantity", "price", "order_type", "memo"]
+
+
+def build_meritz_rows(res: BacktestResult) -> list[dict]:
+    """rpa_claude `orders/orders.csv` 규격: side(buy/sell), symbol, quantity(정수), price, order_type(LOC/MOC/보통), memo.
+    MOC 는 needs_price=false 라 price 를 비운다."""
+    sym = res.cfg.data.symbol
+    rows = []
+    for side, kind, lim, q, reasons, baskets in aggregate_orders(res.pending_orders):
+        qty = int(q)
+        if qty <= 0:
+            continue
+        is_moc = kind == "MOC"
+        rows.append({"side": side.lower(), "symbol": sym, "quantity": qty,
+                     "price": "" if is_moc else f"{lim:.2f}",
+                     "order_type": "MOC" if is_moc else "LOC",
+                     "memo": f"{res.cfg.name}:{'+'.join(reasons)}:basket-{','.join(str(b) for b in baskets)}"})
+    return rows
+
+
+def meritz_csv_text(rows: list[dict]) -> str:
+    import csv, io
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=MERITZ_COLUMNS, lineterminator="\n")
+    w.writeheader(); w.writerows(rows)
+    return buf.getvalue()
+
+
+def save_meritz_csv(res: BacktestResult, out_dir: str | Path, name: str | None = None) -> Path:
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    trade_date = str(res.frame.index[-1].date())
+    path = out / (name or f"orders_meritz_{res.cfg.data.symbol}_{res.cfg.name}_{trade_date}.csv")
+    path.write_text(meritz_csv_text(build_meritz_rows(res)), encoding="utf-8")
     return path

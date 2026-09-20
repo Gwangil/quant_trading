@@ -43,13 +43,14 @@
 | D | **실운용 상태 관리** — 실제 체결 CSV 를 읽어 시뮬레이션 상태와 대조·보정 | 현재는 전 구간 재현 방식이라 체결 오차가 누적되면 시작일을 다시 잡아야 함 | 중간 |
 | E | ~~현금 파킹~~ — 완료(2026-09-08). TBILL3M×80% 가 프로필 기본값. 전체 +1.2%p, 2023~ +4%p (docs/02 §2.1) | | |
 | F | **세금·환율** — 양도세 22%, 원/달러 반영한 세후 원화 수익률 | 부분매도가 잦아 세금 영향 큼 | 중간 |
-| G | **페이퍼 트레이딩** — 도구 완료: `qtrade orders --env paper` 가 auto_trade 주문서 JSON 생성, 절차는 docs/03. 실행은 사용자 | 백테스트 가정(종가 체결) 검증 | 시간 필요 |
+| G | **페이퍼 트레이딩** — 도구 완료: KIS JSON·Meritz CSV 발급, `qtrade serve` HTTP 발급(2026-09-20). 두 층위(발급 기록 / KIS 모의 집행)와 순서는 docs/05 §5. 실행은 사용자 | 백테스트 가정(종가 체결) 검증 | 시간 필요 |
+| J | **집행기 선택(KIS vs Meritz)** — 같은 주문서로 30거래일 병행 실측 후 결정. 비교 항목은 docs/05 §4 | 외화 RP 자동화(Meritz) vs API 정확도(KIS) | 시간 필요 |
 | H | 다른 3배 ETF(TQQQ 등) 및 복수 종목 분산 | 단일 종목 집중 위험 | 중간 |
 | I | 단리 프레임 개선 — v5 의 빠른 회전 요소를 바스켓 구조에 흡수해 MDD/자본 −27% 이하 달성 | 이익 인출 운용자에게 필요 | 높음 |
 
-## 3.1 auto_trade 와의 연동 방침 (2026-09-08 합의)
+## 3.1 집행기 연동 방침 (2026-09-08 합의, 09-20 확장)
 
-- 전략 개발(quant_trading) 과 집행(auto_trade) 은 **주문서 규격 v1(JSON)** 으로만 연동한다. `qtrade orders --env paper|real` 이 규격에 맞는 파일을 만들고, auto_trade `order execute` 가 집행한다.
+- 전략 개발(quant_trading) 과 집행(auto_trade / rpa_claude) 은 **주문서 파일**로만 연동한다. KIS 는 규격 v1 JSON, Meritz 는 orders.csv. 발급은 명령(`qtrade orders`) 또는 HTTP(`qtrade serve`) 로, 집행기 스케줄러가 호출한다 (docs/05).
 - 시세 갱신은 auto_trade 의 updater 규칙(미완성 봉·OHLC 위반 제외)을 가져와 `qtrade data update` 로 구현했다.
 - 실체결 대사(D) 는 auto_trade 의 `executions` 기록 또는 수동 `fills.csv` 를 입력으로 한다.
 

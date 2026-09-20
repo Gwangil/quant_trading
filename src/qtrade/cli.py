@@ -35,8 +35,15 @@ def _sweep(a):
 def _orders(a):
     from .orders import generate, render
     cfg = load_config(a.config)
-    orders, state, res = generate(cfg, a.out, env=a.env)
+    orders, state, res = generate(cfg, a.out, env=a.env, fmt=a.format)
     print(render(orders, state, res))
+
+
+def _serve(a):
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    from .serve import serve
+    serve(a.host, a.port, a.token, configs_dir=a.configs, out_dir=a.out, auto_update=a.update)
 
 
 def _data_update(a):
@@ -96,8 +103,15 @@ def main(argv=None):
     o = sp.add_parser("orders", help="다음 거래일 주문표 생성")
     o.add_argument("-c", "--config", required=True)
     o.add_argument("-o", "--out", default=None)
-    o.add_argument("--env", default=None, choices=["paper", "real"], help="auto_trade 주문서 JSON 도 저장 (집행 환경)")
+    o.add_argument("--env", default=None, choices=["paper", "real"], help="auto_trade 주문서 JSON 의 집행 환경")
+    o.add_argument("--format", default="all", choices=["kis", "meritz", "all"], help="집행기 형식 (-o 지정 시 저장)")
     o.set_defaults(fn=_orders)
+    sv = sp.add_parser("serve", help="주문서 발급 HTTP 서버 (집행기 스케줄러가 호출)")
+    sv.add_argument("--host", default="127.0.0.1"); sv.add_argument("--port", type=int, default=8787)
+    sv.add_argument("--token", default=None, help="X-Token 헤더 / ?token= 공유 비밀")
+    sv.add_argument("--configs", default="configs"); sv.add_argument("--out", default="reports/orders")
+    sv.add_argument("--update", action="store_true", help="요청 시 yfinance 로 시세 자동 갱신 (첫 요청/refresh=1)")
+    sv.set_defaults(fn=_serve)
     d = sp.add_parser("data", help="시세 데이터 관리")
     dsp = d.add_subparsers(dest="data_cmd", required=True)
     du = dsp.add_parser("update", help="yfinance 최신 일봉 + 번들 스냅샷 이어붙여 data/cache 에 저장")

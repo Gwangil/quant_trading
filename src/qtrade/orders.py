@@ -42,8 +42,8 @@ def state_table(res: BacktestResult) -> pd.DataFrame:
 
 
 def generate(cfg: StrategyConfig, out_dir: str | Path | None = None, env: str | None = None,
-             max_stale_days: int = 5) -> tuple[pd.DataFrame, pd.DataFrame, BacktestResult]:
-    """주문표 생성. env 를 주면 auto_trade 주문서 JSON 도 함께 저장한다."""
+             max_stale_days: int = 5, fmt: str = "all") -> tuple[pd.DataFrame, pd.DataFrame, BacktestResult]:
+    """주문표 생성. fmt: kis(auto_trade JSON, env 필요) | meritz(rpa_claude CSV) | all."""
     from .updater import staleness_days
     res = run_backtest(cfg)
     stale = staleness_days(res.frame.index[-1])
@@ -57,10 +57,14 @@ def generate(cfg: StrategyConfig, out_dir: str | Path | None = None, env: str | 
         tag = res.frame.index[-1].strftime("%Y%m%d")
         orders.to_csv(out / f"orders_{tag}.csv", index=False)
         state.to_csv(out / f"state_{tag}.csv", index=False)
-        if env:
+        if env and fmt in ("kis", "all"):
             from .sheet import build_sheet, save_sheet
             path = save_sheet(build_sheet(res, env=env), out)
-            print(f"-> 주문서 JSON: {path}")
+            print(f"-> auto_trade 주문서 JSON: {path}")
+        if fmt in ("meritz", "all"):
+            from .sheet import save_meritz_csv
+            path = save_meritz_csv(res, out)
+            print(f"-> rpa_claude orders.csv: {path}")
     return orders, state, res
 
 
