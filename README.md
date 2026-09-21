@@ -79,8 +79,7 @@ qtrade compare
 # 6-1) 세후 원화 지표 (참고용; 의사결정은 세전 달러)
 qtrade tax -c configs/soxl_balanced.yaml -o reports/tax
 
-# 6-2) 다전략 포트폴리오 (슬리브 결합·상관·통합 주문서)
-qtrade backtest -c configs/trend_soxl_cache.yaml -o reports
+# 6-2) 권장 다전략 포트폴리오 (슬리브 결합·상관·통합 주문서)
 qtrade portfolio configs/portfolio_soxl_gld.yaml
 
 # 7) 최소 시작 자산 검토 (정수 주 제약)
