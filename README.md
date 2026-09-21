@@ -96,7 +96,8 @@ configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에
   soxl_*_cache.yaml                                  data/cache 전 구간(2001~) 연구용 — 주 검증 데이터
   trend_soxl*.yaml, bear_gld.yaml, gld_always.yaml   추세·국면 스위치 슬리브 (kind: trend | regime_switch)
   tqqq/upro/tecl_balanced_cache.yaml                 종목 확장 검증
-  portfolio_soxl_gld.yaml                            권장 다전략 (바스켓 70 + GLD 30), portfolio_soxl_trend.yaml 은 기각 예시
+  portfolio_soxl_gld.yaml                            권장 다전략 (바스켓 70 + GLD 30); _gld_tlt 는 낙폭 최소 옵션, _trend 는 기각 예시
+  tlt/ief/shy_always.yaml, bear_tlt.yaml             채권 슬리브 검증 (보류)
   nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
   sweeps/                                            탐색 그리드
 data/cache/         qtrade data update 결과 (SOXL/SOXX 2001~최신, git 추적: git add -f)

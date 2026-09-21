@@ -1,0 +1,10 @@
+# 채권 슬리브 검증: IEF 상시 보유 (docs/07 §4.5)
+kind: regime_switch
+name: ief_always
+initial_capital: 100000
+cash_yield_annual: TBILL3M
+cash_yield_fraction: 0.8
+cash_yield_spread: -0.0015
+data: {symbol: IEF, reference: SOXX, source: csv, start: null, end: null, backfill: false, synthetic: null}
+rules: {hold_when: always, ma_window: 200, band: 0.02, weight: 1.0, target_vol_annual: null, rebalance_band: 0.15, vol_window: 20, min_hold_days: 5}
+costs: {commission_pct: 0.001, slippage_pct: 0.0, integer_shares: false}

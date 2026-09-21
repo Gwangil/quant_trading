@@ -65,6 +65,13 @@ def test_portfolio_combines_sleeves_and_orders(tmp_path):
     assert out["corr"].shape == (2, 2)
     o = combined_orders(out)
     assert set(o.columns) >= {"symbol", "side", "kind", "limit", "qty", "sleeves"}
+    # 위험균형: 비중 로그가 있고 매년 합이 1, 변동성 낮은 슬리브 비중이 높음
+    spec_rp = {**spec, "rebalance": "risk_parity", "rp_lookback": 60}
+    rp = run_portfolio(spec_rp)
+    wl = rp["weight_log"]
+    assert len(wl) >= 2 and np.allclose(wl.sum(axis=1), 1.0)
+    vols = rp["equities"].pct_change().std()
+    assert wl.iloc[-1][vols.idxmin()] >= wl.iloc[-1][vols.idxmax()]
 
 
 def test_regime_switch_holds_only_in_selected_regime():

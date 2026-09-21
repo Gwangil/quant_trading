@@ -1,6 +1,8 @@
 """다전략 포트폴리오: 슬리브(전략 설정 + 자본 비중)를 각각 돌려 결합한다.
 
-- 각 슬리브는 자기 자본(총자본 × weight)으로 독립 운용. 슬리브 간 리밸런싱은 `rebalance: none|yearly`.
+- 각 슬리브는 자기 자본(총자본 × weight)으로 독립 운용. 슬리브 간 리밸런싱은 `rebalance: none|yearly|risk_parity`.
+  risk_parity: 매년 첫 거래일에 직전 `rp_lookback`(기본 252) 거래일 슬리브 수익률 변동성의 역수에 비례해 비중 결정
+  (weight 는 상한 `rp_max_weight` 및 초기값으로만 쓰임). 미래참조 없음(직전 연도 변동성).
 - 결합 자산곡선·지표·슬리브 간 상관·개별 vs 결합 비교, 그리고 **통합 주문서**(슬리브 주문을 종목·방향·유형·가격으로 합산)를 낸다.
 YAML:
   name: multi_soxl
@@ -41,13 +43,23 @@ def run_portfolio(spec: dict) -> dict:
         idx = idx.intersection(r.equity.index)
     eqs = pd.DataFrame({n: r.equity.reindex(idx) for n, r in zip(names, results)})
     rets = eqs.pct_change().fillna(0.0)
-    if spec["rebalance"] == "yearly":
+    weight_log = []
+    if spec["rebalance"] in ("yearly", "risk_parity"):
         # 매년 첫 거래일에 목표 비중으로 리밸런싱 (슬리브 수익률 결합)
-        w = np.array(weights) / sum(weights)
-        combined = [cap]; cur_w = w.copy(); val = cap; year = idx[0].year
+        w0 = np.array(weights) / sum(weights)
+        lookback = int(spec.get("rp_lookback", 252)); wmax = float(spec.get("rp_max_weight", 1.0))
+        def target(t):
+            if spec["rebalance"] != "risk_parity" or t < lookback:
+                return w0
+            vol = rets.iloc[t - lookback:t].std().values
+            inv = np.where(vol > 0, 1.0 / vol, 0.0)
+            w = inv / inv.sum() if inv.sum() > 0 else w0
+            w = np.minimum(w, wmax); return w / w.sum()
+        combined = [cap]; cur_w = w0.copy(); val = cap; year = idx[0].year
+        weight_log.append((idx[0], cur_w.copy()))
         for t in range(1, len(idx)):
             if idx[t].year != year:
-                cur_w = w.copy(); year = idx[t].year
+                cur_w = target(t); year = idx[t].year; weight_log.append((idx[t], cur_w.copy()))
             growth = 1 + rets.iloc[t].values
             sleeve_vals = cur_w * val * growth
             val = float(sleeve_vals.sum()); cur_w = sleeve_vals / val
@@ -58,8 +70,9 @@ def run_portfolio(spec: dict) -> dict:
     corr = rets.corr()
     metrics = {n: compute_metrics(eqs[n]) for n in names}
     metrics["portfolio"] = compute_metrics(comb)
+    wl = pd.DataFrame([dict(date=d, **{n: w for n, w in zip(names, ws)}) for d, ws in weight_log]).set_index("date") if weight_log else pd.DataFrame()
     return {"names": names, "weights": weights, "results": results, "equities": eqs, "portfolio": comb,
-            "metrics": metrics, "corr": corr, "spec": spec}
+            "metrics": metrics, "corr": corr, "spec": spec, "weight_log": wl}
 
 
 def combined_orders(out: dict) -> pd.DataFrame:
@@ -99,6 +112,8 @@ def render(out: dict, title: str) -> str:
             vals.append(f"{v:.2f}" if k in ("sharpe", "calmar", "ulcer_index") else (("-" if v is None else str(v)) if k in ("mdd_recover_days", "max_underwater_days") else fmt_pct(v)))
         lines.append(f"| {label} | " + " | ".join(vals) + " |")
     lines += ["", "## 슬리브 일간수익률 상관", "", _md(out["corr"].round(2)), ""]
+    if out["spec"]["rebalance"] == "risk_parity" and len(out["weight_log"]):
+        lines += ["## 연도별 배분 비중 (위험균형)", "", _md((out["weight_log"] * 100).round(1).set_index(out["weight_log"].index.year)), ""]
     yr = pd.DataFrame({n: out["equities"][n].resample("YE").last().pct_change() for n in out["names"]})
     yr["portfolio"] = out["portfolio"].resample("YE").last().pct_change()
     first = {n: out["equities"][n].resample("YE").last().iloc[0] / out["equities"][n].iloc[0] - 1 for n in out["names"]}

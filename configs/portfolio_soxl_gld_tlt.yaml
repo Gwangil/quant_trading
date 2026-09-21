@@ -1,0 +1,8 @@
+# 낙폭 최소 옵션: 균형형 바스켓 60% + GLD 20% + TLT 20% (Calmar 0.91, MDD −15.6%, CAGR 14.1%, 2022 −11%). 권장은 portfolio_soxl_gld.yaml. 근거 docs/07 §4.4
+name: portfolio_soxl_gld_tlt
+initial_capital: 100000
+rebalance: yearly
+sleeves:
+  - {name: basket_soxl, config: configs/soxl_balanced_cache.yaml, weight: 0.6}
+  - {name: gld, config: configs/gld_always.yaml, weight: 0.2}
+  - {name: tlt, config: configs/tlt_always.yaml, weight: 0.2}
