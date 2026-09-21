@@ -99,6 +99,7 @@ configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에
   portfolio_soxl_gld.yaml                            권장 다전략 (바스켓 70 + GLD 30); _gld_tlt 는 낙폭 최소 옵션, _trend 는 기각 예시
   tlt/ief/shy_always.yaml, bear_tlt.yaml             채권 슬리브 검증 (보류)
   v5_soxl_cache.yaml, v5c_soxl_cache.yaml            v5 슬리브 검증 (기각)
+  kodex_lev_*_cache.yaml                             국내 KODEX 레버리지 검증 (기각)
   nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
   sweeps/                                            탐색 그리드
 data/cache/         qtrade data update 결과 (SOXL/SOXX 2001~최신, git 추적: git add -f)
