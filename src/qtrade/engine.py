@@ -31,54 +31,9 @@ def prepare_frame(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> pd.D
     df = (data if data is not None else build_dataset(cfg.data)).copy()
     df["vol"] = realized_vol(df["close"], cfg.entry.vol_window)
     ma = sma(df["ref_close"], cfg.regime.ma_window)
-    bull = regime_series(df["ref_close"], cfg.regime)
-    rv = realized_vol(df["ref_close"], cfg.entry.vol_window)
-    df["ref_vol"] = rv
-    vol_bear = pd.Series(False, index=df.index)
-    if cfg.regime.ref_vol_bear_abs is not None:
-        vol_bear |= rv > cfg.regime.ref_vol_bear_abs
-    if cfg.regime.ref_vol_bear_rel is not None:
-        lv = realized_vol(df["ref_close"], 252)
-        vol_bear |= (rv / lv) > cfg.regime.ref_vol_bear_rel
-    df["bull"] = bull.where(~vol_bear, other=0.0)
+    df["bull"] = regime_flags(df["ref_close"], ma, cfg.regime.ma_band)
     df["sym_sma"] = sma(df["close"], cfg.regime.breaker_resume_sma)
     return df
-
-
-def regime_series(ref: pd.Series, rc) -> pd.Series:
-    """RegimeConfig 의 mode/slope/eval_freq/band 를 반영한 강세 플래그 (NaN = 미산출)."""
-    ma = sma(ref, rc.ma_window)
-    if rc.mode == "dual_ma":
-        sig, base = sma(ref, rc.fast_window), ma          # 단기이평 vs 장기이평
-    else:
-        sig, base = ref, ma
-    band = pd.Series(rc.ma_band, index=ref.index)
-    if rc.band_atr_mult > 0:
-        tr = ref.diff().abs()                              # 종가만 있으므로 |Δ종가| 를 TR 대용
-        band = (rc.band_atr_mult * tr.rolling(20).mean() / base).fillna(rc.ma_band)
-    raw = np.full(len(ref), np.nan); state = None
-    s_, b_, bd = sig.values, base.values, band.values
-    slope_ok = np.ones(len(ref), dtype=bool)
-    if rc.slope_days > 0:
-        slope_ok = (ma > ma.shift(rc.slope_days)).fillna(False).values
-    for i in range(len(ref)):
-        if np.isnan(b_[i]) or np.isnan(s_[i]):
-            continue
-        up = s_[i] > b_[i] * (1 + bd[i]); down = s_[i] < b_[i] * (1 - bd[i])
-        if state is None:
-            state = s_[i] > b_[i]
-        elif state and down:
-            state = False
-        elif not state and up:
-            state = True
-        raw[i] = bool(state and slope_ok[i])
-    out = pd.Series(raw, index=ref.index)
-    if rc.eval_freq in ("weekly", "monthly"):
-        period = out.index.to_period("W" if rc.eval_freq == "weekly" else "M")
-        last_of_period = pd.Series(period, index=out.index).ne(pd.Series(period, index=out.index).shift(-1))
-        held = out.where(last_of_period).shift(1).ffill()     # 판정일 다음 날부터 다음 판정일까지 유지
-        out = held.where(out.notna())
-    return out
 
 
 def regime_flags(ref: pd.Series, ma: pd.Series, band: float) -> pd.Series:
@@ -148,8 +103,6 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
     trades: list[dict] = []
     breaker = cfg.regime.breaker_dd
     halted = False
-    rk = cfg.risk
-    risk_peak = float(cfg.initial_capital)
     bk_peak = float(cfg.initial_capital)
     sym_sma = df["sym_sma"].values.astype(float)
     rows: list[dict] = []
@@ -199,8 +152,8 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                     sh = sum(l.qty for l in lots)
                     frac = min(o.qty / sh, 1.0) if sh > 0 else 0.0
                 else:
-                    lots = [l for l in b.lots if l.cost in o.lot_costs and not l.tp_done]
-                    frac = cfg.exit.lot_tp_sell_frac
+                    lots = [l for l in b.lots if l.cost in o.lot_costs]
+                    frac = 1.0
                 if not lots or frac <= 0:
                     continue
                 n_fillable += 1
@@ -223,8 +176,6 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                         b.lots.remove(l)
                     else:
                         l.qty *= (1.0 - frac)
-                        if o.reason == "lot_tp":
-                            l.tp_done = True
                         if l.qty < 1e-9:
                             b.lots.remove(l)
                 trades.append(dict(date=date, basket=b.id, side="SELL", kind=o.kind, qty=qty, price=fill_px,
@@ -258,25 +209,13 @@ def run_backtest(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> Backt
                 bk_peak = equity
             if halted:
                 bull = False
-        # ---- 노출 상한(변동성 타게팅) / 낙폭 연동 축소 ----
-        exposure_cap = rk.max_exposure
-        if rk.vol_target_annual and vol[i] == vol[i] and vol[i] > 0:
-            exposure_cap = min(exposure_cap, rk.vol_target_annual / (vol[i] * np.sqrt(TRADING_DAYS)))
-        size_mult = 1.0
-        risk_peak = max(risk_peak, equity)
-        if rk.dd_scale_start is not None:
-            dd_now = 1.0 - equity / risk_peak
-            if dd_now > rk.dd_scale_start:
-                t = min(1.0, (dd_now - rk.dd_scale_start) / max(rk.dd_scale_floor - rk.dd_scale_start, 1e-9))
-                size_mult = 1.0 - (1.0 - rk.dd_scale_min_mult) * t
         rows.append(dict(date=date, close=px, ref_close=df["ref_close"].iat[i], vol=vol[i], bull=bull, halted=halted,
-                         exposure_cap=exposure_cap, size_mult=size_mult, interest=interest,
+                         interest=interest,
                          cash=cash, invested=invested, equity=equity, n_active=n_active,
                          exposure=invested / equity if equity > 0 else 0.0))
 
         # ---- 5) 내일 주문 생성 ----
-        pending, returned = strat.generate_orders(i, date, px, vol[i], bull, equity, idle_cash, halt=halted,
-                                                  exposure_cap=exposure_cap, size_mult=size_mult, invested=invested)
+        pending, returned = strat.generate_orders(i, date, px, vol[i], bull, equity, idle_cash, halt=halted)
 
     frame = pd.DataFrame(rows).set_index("date")
     eq = frame["equity"].rename("equity")

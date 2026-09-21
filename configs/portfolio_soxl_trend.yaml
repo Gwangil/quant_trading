@@ -1,7 +1,0 @@
-# (기각 예시) 균형형 바스켓 60% + 추세추종 40%. 같은 종목 위라 분산 효과 없음 — docs/07 §4.1
-name: portfolio_soxl_trend
-initial_capital: 100000
-rebalance: yearly
-sleeves:
-  - {name: basket, config: configs/soxl_balanced_cache.yaml, weight: 0.6}
-  - {name: trend, config: configs/trend_soxl_cache.yaml, weight: 0.4}

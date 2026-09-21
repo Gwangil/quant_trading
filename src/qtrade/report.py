@@ -73,13 +73,11 @@ def render_markdown(res: BacktestResult, m: dict | None = None, title: str | Non
         return "\n".join(lines)
     lines += ["", "## 주요 설정",
               f"- 바스켓 {cfg.baskets.count}개 × 슬라이스 {cfg.baskets.slices}회, 오픈 간격 {cfg.baskets.min_days_between_opens}일",
-              f"- 매수: 전일종가 × (1 − clamp({cfg.entry.dip_vol_mult}×σ, {cfg.entry.min_dip_pct:.0%}, {cfg.entry.max_dip_pct:.0%})), 첫 슬라이스 하락률 {cfg.entry.first_slice_dip_pct:.1%}, 물타기 가속 {cfg.entry.depth_boost}",
+              f"- 매수: 전일종가 × (1 − clamp({cfg.entry.dip_vol_mult}×σ, {cfg.entry.min_dip_pct:.0%}, {cfg.entry.max_dip_pct:.0%})), 첫 슬라이스 하락률 {cfg.entry.first_slice_dip_pct:.1%}, 변동성 타게팅 σ>{cfg.entry.target_vol}",
               f"- 로트 익절: 매입가 × (1 + clamp({cfg.exit.lot_tp_vol_mult}×σ, {cfg.exit.min_lot_tp_pct:.0%}, {cfg.exit.max_lot_tp_pct:.0%}))",
               f"- 바스켓 청산: 목표 +{cfg.exit.basket_tp_pct:.0%} / 손절 {('-' + format(cfg.exit.basket_sl_pct, '.0%')) if cfg.exit.basket_sl_pct is not None else '없음'} / 보유 {cfg.exit.max_hold_days}일(손익≥{cfg.exit.soft_exit_pnl_pct:.0%}) / 강제 {cfg.exit.hard_max_hold_days}일",
-              f"- 레짐: {'ON' if cfg.regime.enabled else 'OFF'} (기준지수 {cfg.regime.ma_window}일선, 약세장 바스켓 {cfg.regime.bear_max_baskets}개, 슬라이스 ×{cfg.regime.bear_slice_mult}, 신규매수중단={cfg.regime.bear_no_new_lots})",
+              f"- 레짐: {'ON' if cfg.regime.enabled else 'OFF'} (기준지수 {cfg.regime.ma_window}일선 밴드 {cfg.regime.ma_band:.0%}, 약세장 바스켓 {cfg.regime.bear_max_baskets}개, 슬라이스 ×{cfg.regime.bear_slice_mult}, 초과분 청산={cfg.regime.bear_liquidate}, 쿨다운 {cfg.regime.cooldown_after_sl_days}일)",
               f"- v5 결합: 상승일 부분매도 {cfg.exit.upday_sell_frac:.0%}, 서킷브레이커 {('-' + format(cfg.regime.breaker_dd, '.0%') + ' / ' + str(cfg.regime.breaker_resume_sma) + '일선 복귀') if cfg.regime.breaker_dd else '없음'}",
-              f"- 리스크 레이어: 변동성 타게팅 {('연 ' + format(cfg.risk.vol_target_annual, '.0%')) if cfg.risk.vol_target_annual else '없음'}, 노출 상한 {cfg.risk.max_exposure:.0%}, "
-              f"낙폭 연동 축소 {(format(cfg.risk.dd_scale_start, '.0%') + '→' + format(cfg.risk.dd_scale_floor, '.0%') + ' 에서 ×' + str(cfg.risk.dd_scale_min_mult)) if cfg.risk.dd_scale_start is not None else '없음'}",
               f"- 비용: 수수료 {cfg.costs.commission_pct:.2%}/편도, 현금 파킹 {cfg.cash_yield_annual if isinstance(cfg.cash_yield_annual, str) else format(cfg.cash_yield_annual, '.1%')} × {cfg.cash_yield_fraction:.0%}", ""]
     return "\n".join(lines)
 

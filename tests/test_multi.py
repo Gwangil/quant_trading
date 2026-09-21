@@ -4,51 +4,39 @@ import pandas as pd
 import pytest
 
 from qtrade.strategies import load_any, run_any, KINDS
-from qtrade.strategies.trend import TrendConfig, TrendRules, run_trend
+from qtrade.strategies.regime_switch import SwitchConfig, SwitchRules, run_switch, switch_config_from_dict
 from qtrade.config import DataConfig
 from qtrade.portfolio import run_portfolio, combined_orders
 from tests.test_core import make_data
 
 
-def _trend_cfg(**rules):
-    return TrendConfig(name="t", initial_capital=100_000, cash_yield_annual=0.0,
-                       data=DataConfig(source="csv"), rules=TrendRules(ma_window=50, mom_window=20, **rules))
+def _switch_cfg(**rules):
+    return SwitchConfig(name="s", initial_capital=100_000, cash_yield_annual=0.0,
+                        data=DataConfig(source="csv"), rules=SwitchRules(ma_window=50, band=0.0, min_hold_days=1, **rules))
 
 
 def test_sim_accounting_and_moc_fills():
     data = make_data(seed=8, n=600)
-    res = run_trend(_trend_cfg(), data)
+    res = run_switch(_switch_cfg(hold_when="bull"), data)
     f = res.frame
     np.testing.assert_allclose(f["equity"], f["cash"] + f["invested"])
     assert (f["cash"] >= -1e-6).all() and (f["exposure"] <= 1.0 + 1e-9).all()
     t = res.trades
     assert len(t) > 0 and set(t.kind) == {"MOC"}
-    # 진입은 기준지수가 이평 위인 날의 다음 거래일에만
-    entries = t[t.reason == "trend_entry"]
-    prev_bull = f["bull"].shift(1).reindex(entries.date)
+    entries = t[t.reason == "switch_entry"]
+    prev_bull = f["bull"].shift(1).reindex(entries.date)     # 진입은 강세 판정 다음 거래일 종가
     assert prev_bull.fillna(False).all()
-
-
-def test_trend_trailing_stop_exits_after_drawdown_from_high():
-    idx = pd.bdate_range("2015-01-01", periods=400)
-    path = np.concatenate([np.linspace(100, 200, 250), np.linspace(200, 120, 150)])
-    data = pd.DataFrame({"close": path, "ref_close": path}, index=idx)
-    res = run_trend(_trend_cfg(trail_pct=0.20, exit_band=0.5), data)   # 이평 청산은 사실상 끔 → 추적 손절만
-    exits = res.trades[res.trades.reason == "trend_exit"]
-    assert len(exits) >= 1
-    d = exits.date.iloc[0]
-    assert data.loc[d, "close"] <= 200 * 0.80 * 1.02
 
 
 def test_registry_loads_kind_and_runs(tmp_path):
     import yaml
-    p = tmp_path / "t.yaml"
-    yaml.safe_dump({"kind": "trend", "name": "x", "initial_capital": 1000, "cash_yield_annual": 0.0,
-                    "data": {"source": "csv", "cache_dir": "data/cache"}, "rules": {"ma_window": 50}}, open(p, "w"))
+    p = tmp_path / "s.yaml"
+    yaml.safe_dump({"kind": "regime_switch", "name": "x", "initial_capital": 1000, "cash_yield_annual": 0.0,
+                    "data": {"source": "csv", "cache_dir": "data/cache"}, "rules": {"ma_window": 50, "hold_when": "always"}}, open(p, "w"))
     cfg, kind = load_any(p)
-    assert kind == "trend" and cfg.rules.ma_window == 50 and "basket_loc" in KINDS
+    assert kind == "regime_switch" and cfg.rules.ma_window == 50 and set(KINDS) == {"basket_loc", "regime_switch"}
     with pytest.raises(KeyError):
-        load_any(p) if False else __import__("qtrade.strategies.trend", fromlist=["trend_config_from_dict"]).trend_config_from_dict({"nope": 1})
+        switch_config_from_dict({"nope": 1})
 
 
 def test_portfolio_combines_sleeves_and_orders(tmp_path):
@@ -56,11 +44,11 @@ def test_portfolio_combines_sleeves_and_orders(tmp_path):
     from qtrade.config import save_config
     from tests.test_core import base_cfg
     bc = base_cfg(**{"data.source": "csv"}); save_config(bc, tmp_path / "b.yaml")
-    tc = _trend_cfg(); yaml.safe_dump(tc.to_dict(), open(tmp_path / "t.yaml", "w"))
+    tc = _switch_cfg(hold_when="always"); yaml.safe_dump(tc.to_dict(), open(tmp_path / "t.yaml", "w"))
     spec = {"name": "p", "initial_capital": 100_000, "rebalance": "yearly",
-            "sleeves": [{"name": "basket", "config": str(tmp_path / "b.yaml"), "weight": 0.5}, {"name": "trend", "config": str(tmp_path / "t.yaml"), "weight": 0.5}]}
+            "sleeves": [{"name": "basket", "config": str(tmp_path / "b.yaml"), "weight": 0.5}, {"name": "hold", "config": str(tmp_path / "t.yaml"), "weight": 0.5}]}
     out = run_portfolio(spec)
-    assert set(out["equities"].columns) == {"basket", "trend"} and len(out["portfolio"]) > 100
+    assert set(out["equities"].columns) == {"basket", "hold"} and len(out["portfolio"]) > 100
     assert abs(out["portfolio"].iloc[0] - 100_000) < 1e-6
     assert out["corr"].shape == (2, 2)
     o = combined_orders(out)
@@ -87,19 +75,3 @@ def test_regime_switch_holds_only_in_selected_regime():
     assert bull["exposure"].iloc[200] > 0.9 and bull["exposure"].iloc[-1] == 0.0
     assert (alw["exposure"].iloc[60:] > 0.9).all()
 
-
-def test_v5_kind_runs_and_emits_next_day_orders(tmp_path):
-    import yaml
-    from qtrade.strategies.v5_scalp import V5Config, run_v5
-    from qtrade.reference import ReferenceParams
-    data = make_data(seed=9, n=700)
-    cfg = V5Config(name="v", initial_capital=50_000, data=DataConfig(source="csv"), rules=ReferenceParams(target_profit=0.015, breaker_dd=-0.15))
-    res = run_v5(cfg, data)
-    f = res.frame
-    np.testing.assert_allclose(f["equity"], f["cash"] + f["invested"])
-    assert abs(f["equity"].iloc[0] - 50_000) < 1e-6 and (f["exposure"] <= 1 + 1e-9).all()
-    for o in res.pending_orders:
-        assert o.side in ("BUY", "SELL") and o.kind in ("LOC", "MOC") and o.qty > 0
-        if o.kind == "LOC": assert o.limit > 0
-    p = tmp_path / "v.yaml"; yaml.safe_dump(cfg.to_dict(), open(p, "w"))
-    cfg2, kind = load_any(p); assert kind == "v5_scalp" and cfg2.rules.target_profit == 0.015

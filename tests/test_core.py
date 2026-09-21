@@ -155,5 +155,5 @@ def test_engine_defaults_match_balanced_profile():
     """StrategyConfig() 의 구조 파라미터는 균형형 프로필과 같아야 한다 (문서·기본값·프로필 3중 불일치 방지)."""
     from qtrade.profiles import build
     d, b = StrategyConfig(), build("balanced")
-    for sec in ("baskets", "entry", "exit", "regime", "risk", "costs"):
+    for sec in ("baskets", "entry", "exit", "regime", "costs"):
         assert getattr(d, sec) == getattr(b, sec), sec

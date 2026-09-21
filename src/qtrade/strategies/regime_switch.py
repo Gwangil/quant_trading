@@ -1,4 +1,4 @@
-"""국면 스위치 슬리브: 기준지수의 이평 국면에 따라 자산을 들거나 현금(파킹)으로 간다.
+"""자산 보유 슬리브: `hold_when: always` 는 상시 보유(채택: GLD 슬리브), bear/bull 은 기준지수 이평 국면에만 보유(검증용, 기각).
 
   hold_when: bear  → 기준지수 < SMA×(1−band) 일 때 symbol 보유 (약세 국면 자산: GLD, 단기채 ETF, 인버스 등)
   hold_when: bull  → 기준지수 > SMA×(1+band) 일 때 보유

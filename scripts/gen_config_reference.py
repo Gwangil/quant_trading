@@ -5,19 +5,16 @@ import re, pathlib
 SRC = pathlib.Path("src/qtrade/config.py").read_text(encoding="utf-8")
 OUT = pathlib.Path("docs/06_config_reference.md")
 SECTION = {"StrategyConfig": "최상위", "DataConfig": "data", "SyntheticConfig": "data.synthetic", "BasketConfig": "baskets",
-           "EntryConfig": "entry", "ExitConfig": "exit", "RegimeConfig": "regime", "RiskConfig": "risk", "CostConfig": "costs"}
-STATUS = {  # 프로필에서 쓰지 않는 실험 옵션
-    "budget_frac": "실험", "first_slice_dip_pct": "실험", "first_slice_mult": "실험", "depth_boost": "기각(MDD 악화)",
-    "addon_below_avg_pct": "실험(v5 재현용)", "lot_tp_sell_frac": "기각(MDD 악화)", "upday_min_rise": "실험", "basket_sl_pct": "기각(해로움)",
-    "soft_exit_pnl_pct": "실험", "bear_no_new_lots": "실험", "ref_vol_bear_abs": "기각(효과 없음)", "ref_vol_bear_rel": "기각(효과 없음)",
-    "breaker_dd": "공격형만", "max_vol_to_open": "실험", "vol_target_annual": "기각(개선 없음)", "max_exposure": "실험",
-    "dd_scale_start": "기각(회복 지연)", "dd_scale_floor": "기각", "dd_scale_min_mult": "기각", "integer_shares": "검토용", "slippage_pct": "실측 후 설정",
-    "synthetic": "프록시용", "backfill": "프록시용", "budget_mode": "비교용(fixed)",
+           "EntryConfig": "entry", "ExitConfig": "exit", "RegimeConfig": "regime", "CostConfig": "costs"}
+STATUS = {  # 프로필 코어 외 옵션의 용도
+    "first_slice_dip_pct": "코어(0)", "basket_sl_pct": "기각(해로움) — None 유지", "soft_exit_pnl_pct": "코어(0)",
+    "breaker_dd": "공격형만", "ma_band": "코어(0)", "integer_shares": "검토용", "slippage_pct": "실측 후 설정",
+    "synthetic": "프록시용", "backfill": "백필용", "budget_mode": "비교용(fixed)",
 }
 blocks = re.findall(r"@dataclass\nclass (\w+):\n(.*?)(?=\n\n\n|\n@dataclass|\n_NESTED)", SRC, flags=re.S)
 lines = ["# 06. 설정 레퍼런스 (자동 생성: `python scripts/gen_config_reference.py`)", "",
          "YAML 은 `qtrade make-configs` 가 `src/qtrade/profiles.py` 에서 생성한다. 기본값은 **균형형 프로필과 같다**(테스트로 강제).",
-         "상태: (비어 있음) = 프로필 코어에서 사용 · 실험 = 코드는 있으나 프로필에서 미사용 · 기각 = 실데이터에서 불리해 끔(근거 docs/02 §3).", ""]
+         "기각된 실험 옵션(손절, 물타기 가속, 부분 익절, 변동성 레짐, 노출 상한, 낙폭 연동 축소, 레짐 판정 방식 등)은 2026-09-21 정리 시 코드에서 제거했다. 근거와 수치는 docs/02 §3, docs/07 §4 에 남아 있다.", ""]
 for cls, body in blocks:
     lines += [f"## `{SECTION.get(cls, cls)}` ({cls})", "", "| 키 | 기본값 | 의미 | 상태 |", "|---|---|---|---|"]
     for line in body.splitlines():

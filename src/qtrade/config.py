@@ -37,7 +37,6 @@ class BasketConfig:
     slices: int = 6                    # 바스켓 예산을 나눠 사는 분할 매수 횟수
     min_days_between_opens: int = 3    # 바스켓 신규 오픈 간 최소 간격(거래일) → 진입 시점 분산
     min_budget_frac: float = 0.25      # 여유 현금이 정상 예산의 이 비율 미만이면 오픈하지 않음
-    budget_frac: float | None = None   # 바스켓 예산 = 총자산 × budget_frac (None = 1/count). 합이 1을 넘으면 현금 한도로 제한
     budget_mode: str = "equity"        # equity: 현재 총자산 기준(복리) | fixed: 초기자본 기준 고정(단리)
 
 
@@ -48,11 +47,8 @@ class EntryConfig:
     min_dip_pct: float = 0.0           # 하락률 하한 (0 = 보합 이하 마감이면 체결)
     max_dip_pct: float = 0.06          # 하락률 상한
     first_slice_dip_pct: float = 0.0   # 바스켓 첫 슬라이스는 이 하락률만 요구 (0 = 보합 이하면 매수)
-    first_slice_mult: float = 1.0      # 첫 슬라이스 크기 배수
-    depth_boost: float = 0.0           # 평단 대비 −10%마다 슬라이스 배수 가산 (물타기 가속, 0=비활성)
-    max_slice_mult: float = 3.0        # 슬라이스 배수 상한
+    max_slice_mult: float = 3.0        # 슬라이스 배수 상한 (약세장 ×0.5, 변동성 타게팅 축소만 있으므로 사실상 1)
     target_vol: float | None = 0.045   # 변동성 타게팅: 슬라이스 × min(1, target_vol/σ). 급변동기 매수 축소 (예: 0.04)
-    addon_below_avg_pct: float | None = None  # 2번째 슬라이스부터는 지정가 ≤ 평단 × (1 − 이 값) 일 때만 (v5 의 −5% 물타기 규칙)
 
 
 @dataclass
@@ -60,9 +56,7 @@ class ExitConfig:
     lot_tp_vol_mult: float = 1.0       # 로트 매도 LOC 지정가 = 로트 매입가 × (1 + mult × 일변동성)
     min_lot_tp_pct: float = 0.03       # 익절률 하한
     max_lot_tp_pct: float = 0.15       # 익절률 상한
-    lot_tp_sell_frac: float = 1.0      # 로트 익절 시 매도 비율 (0.5 = 절반만 팔고 나머지는 바스켓 청산까지 보유)
     upday_sell_frac: float = 0.1       # 상승 마감일마다 보유수량의 이 비율을 매도 (LOC 지정가 = 전일종가). invest_strategy v5 의 부분매도
-    upday_min_rise: float = 0.0        # 상승일 판정 최소 상승률 (LOC 지정가 = 전일종가 × (1 + 이 값))
     basket_tp_pct: float = 0.20        # 바스켓 수익률(예산 대비) 목표 → 전량 청산(MOC)
     basket_sl_pct: float | None = None # 바스켓 손실률 한도 → 전량 청산 (None=미사용. 실데이터에서 해로움, docs/02 §3)
     max_hold_days: int = 60            # 보유기간 초과 시, 손익 ≥ soft_exit_pnl_pct 이면 청산
@@ -75,31 +69,12 @@ class RegimeConfig:
     enabled: bool = True               # 기준지수 추세 레짐 사용
     ma_window: int = 200               # 기준 지수 종가 vs 이동평균 → 강세/약세
     ma_band: float = 0.0               # 히스테리시스 밴드: 강세 전환은 MA×(1+band) 상향, 약세 전환은 MA×(1−band) 하향 돌파
-    mode: str = "ma"                   # ma: 종가 vs 이평 | dual_ma: 단기이평 vs 장기이평
-    fast_window: int = 50              # dual_ma 의 단기 이평
-    slope_days: int = 0                # >0 이면 강세 조건에 '이평 기울기 > 0 (slope_days 전 대비)' 추가
-    eval_freq: str = "daily"           # daily | weekly | monthly: 국면 판정 주기 (그 외 날은 직전 판정 유지)
-    band_atr_mult: float = 0.0         # >0 이면 밴드 = mult × ATR(20)/MA (변동성 비례 히스테리시스, ma_band 대신)
     bear_max_baskets: int = 1          # 약세장에서 동시 운용 가능한 바스켓 수
     bear_slice_mult: float = 0.5       # 약세장 슬라이스 크기 배수
-    bear_no_new_lots: bool = False     # 약세장에서는 신규 매수 자체를 중단
     bear_liquidate: bool = True        # 약세 전환 시 bear_max_baskets 초과분(수익률 낮은 순)을 청산
     cooldown_after_sl_days: int = 20          # 바스켓 손절·약세 청산·브레이커 후 이 기간 동안 신규 바스켓 오픈 금지
-    ref_vol_bear_abs: float | None = None     # 기준지수 20일 일변동성이 이 값 초과면 약세 (예: 0.03)
-    ref_vol_bear_rel: float | None = None     # 기준지수 20일 변동성 / 252일 변동성 이 이 배수 초과면 약세 (예: 1.8)
     breaker_dd: float | None = None           # 계좌 서킷브레이커: 총자산이 고점 대비 이 비율 이상 빠지면 전량 청산·매매 중단 (예: 0.15)
     breaker_resume_sma: int = 200             # 중단 해제: 매매 대상 종가가 이 이동평균 위로 복귀하면 재개 (고점은 현재 자산으로 리셋)
-    max_vol_to_open: float | None = None      # 일변동성이 이 값 초과면 신규 바스켓 오픈 금지 (예: 0.06)
-
-
-@dataclass
-class RiskConfig:
-    """포트폴리오 단위 노출 관리 (심리적 방어 레이어)."""
-    vol_target_annual: float | None = None   # 노출 상한 = min(1, 목표연변동성 / 매매대상 실현연변동성). 예: 0.35
-    max_exposure: float = 1.0                # 총자산 대비 투자비중 절대 상한
-    dd_scale_start: float | None = None      # 전략 자산 낙폭이 이 값을 넘으면 매수 규모 축소 시작 (예: 0.10)
-    dd_scale_floor: float = 0.30             # 이 낙폭에서 축소가 최대가 됨
-    dd_scale_min_mult: float = 0.25          # 최대 축소 시 매수 규모 배수
 
 
 @dataclass
@@ -121,7 +96,6 @@ class StrategyConfig:
     entry: EntryConfig = field(default_factory=EntryConfig)
     exit: ExitConfig = field(default_factory=ExitConfig)
     regime: RegimeConfig = field(default_factory=RegimeConfig)
-    risk: RiskConfig = field(default_factory=RiskConfig)
     costs: CostConfig = field(default_factory=CostConfig)
 
     # ---- 직렬화 ----
@@ -147,7 +121,7 @@ class StrategyConfig:
 
 _NESTED = {
     "data": DataConfig, "baskets": BasketConfig, "entry": EntryConfig,
-    "exit": ExitConfig, "regime": RegimeConfig, "risk": RiskConfig, "costs": CostConfig,
+    "exit": ExitConfig, "regime": RegimeConfig, "costs": CostConfig,
 }
 
 

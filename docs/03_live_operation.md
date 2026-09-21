@@ -1,109 +1,83 @@
-# 03. 실전 운용 절차
+# 03. 운용 매뉴얼
 
-## 최초 1회: 데이터 준비
+이 저장소는 **주문서를 발급**하는 곳이다. 주문 접수·체결 확인·잔고 관리는 집행기(auto_trade / rpa_claude)가 한다(docs/05). 이 매뉴얼은 주문서 발급 쪽에서 매일·매월·매년 해야 할 일과 이상 상황 대응을 적는다.
+
+## 1. 시작 전 결정
+
+| 항목 | 기본 | 비고 |
+|---|---|---|
+| 구성 | **전략 B: 바스켓 균형형 70 + GLD 30** (`configs/portfolio_soxl_gld.yaml`) | 바스켓 단독은 `configs/soxl_balanced.yaml` |
+| 프로필 | 균형형 | 방어형(낙폭 −19%), 공격형(권하지 않음). 낙폭 중에 바꾸지 않는다 — 시작 전에 정한다 |
+| 자본 | 균형형 최소 $10k, 권장 $20k 이상 | 정수 주 제약 검토 docs/02 §6 |
+| 집행기 | KIS(API) 또는 Meritz(RPA) | 비교 기준 docs/05 §4. Meritz 는 외화 자동 RP 로 현금 파킹이 자동 |
+| 현금 파킹 | 대기 현금 80% 를 단기채 ETF(SGOV/BIL) 또는 증권사 RP | 백테스트 가정. KIS 는 수동 매매 필요 |
+
+## 2. 최초 1회 설정
 
 ```bash
-uv venv && uv pip install -e ".[data,dev]"   # 설치 방법은 README 참조 (Windows 는 uv run qtrade ...)
-qtrade data update            # SOXL, SOXX 를 yfinance 로 받아 번들 스냅샷(2001~)과 이어붙여 data/cache/ 에 저장
-qtrade backtest -c configs/soxl_balanced.yaml -o reports/live   # 최신 데이터로 프로필 재확인 (docs/02 와 비교)
+uv venv && uv pip install -e ".[data,dev]"        # 설치 (Windows 도 동일, README)
+uv run qtrade data update                          # SOXL, SOXX, USDKRW (+ GLD 는 아래)
+uv run qtrade data update GLD
+uv run qtrade backtest -c configs/soxl_balanced.yaml -o reports/live   # 최신 데이터로 프로필 확인
 ```
 
-`qtrade data update` 는 미완성 당일 봉(미 동부 16:10 이전)과 OHLC 불변식 위반 봉을 걸러낸다 (auto_trade updater 와 같은 규칙).
-번들 구간은 이어붙이는 날의 종가 비율로 스케일하므로 수정주가가 바뀌어도 불연속이 생기지 않는다.
+운용 설정 파일 만들기: `configs/soxl_balanced.yaml` 을 복사해 `configs/live_soxl.yaml` 로 두고 두 값만 바꾼다.
+- `initial_capital`: 바스켓 슬리브에 배정한 달러 금액 (전략 B 면 계좌의 70%)
+- `data.start`: 운용 시작일 (이 날부터 replay 가 시작된다. 지표 워밍업은 그 이전 데이터를 자동으로 씀)
 
-## 매일 루틴 (한국시간 기준, 미국 장 마감 후 아침)
+포트폴리오 파일 `configs/portfolio_soxl_gld.yaml` 의 `initial_capital` 을 계좌 총액으로, 슬리브 config 를 `configs/live_soxl.yaml` 로 바꾼다.
+`configs/*.yaml` 은 `qtrade make-configs` 가 덮어쓰므로 **운용 파일은 `live_` 접두어로 따로 둔다.**
+
+## 3. 매일 루틴 (한국시간 아침, 미국 장 마감 후)
 
 ```bash
-qtrade data update
-qtrade orders -c configs/soxl_balanced.yaml -o reports/orders --env paper   # 방어형은 soxl_defensive, 공격형은 soxl_aggressive
+uv run qtrade data update
+uv run qtrade portfolio configs/portfolio_soxl_gld.yaml          # 통합 주문서 → reports/portfolio/portfolio_soxl_gld_orders.csv
+# 바스켓 단독 운용이면:
+uv run qtrade orders -c configs/live_soxl.yaml -o reports/orders --env real --format kis   # 또는 --format meritz
 ```
 
-- 첫 줄에 `⚠ 데이터가 오래됨` 이 보이면 갱신이 안 된 것이다. 오래된 데이터로 만든 주문표는 쓰지 않는다.
-- `-o` 를 주면 집행기용 파일이 함께 저장된다(`--format kis|meritz|all`, 기본 all):
-  KIS auto_trade JSON `orders_{env}_SOXL_..json`(`--env` 필요), Meritz rpa_claude CSV `orders_meritz_SOXL_..csv`.
-  집행기 연동과 스케줄, HTTP 발급(`qtrade serve`)은 docs/05 참조.
+집행기가 HTTP 로 받아가게 하려면 `uv run qtrade serve --host 0.0.0.0 --port 8787 --token <비밀> --update` 를 띄워 둔다(docs/05 §2).
 
-출력 예:
+주문표 읽는 법:
+- `BUY LOC 지정가`: 종가가 지정가 이하로 마감하면 체결. 같은 가격의 바스켓 주문은 한 건으로 합쳐져 있다.
+- `SELL LOC 지정가`: 로트 익절. 종가가 지정가 이상이면 체결. 지정가가 전일종가와 같은 `upday_sell` 은 상승 마감일 부분매도.
+- `SELL MOC`: 바스켓 전량 청산(목표 도달·기간 만료·약세 전환). 반드시 낸다.
+- 같은 날 매수·매도가 동시에 나오는 것이 정상이다. 서로 다른 가격이므로 둘 다 낸다.
+- 첫 줄에 `⚠ 데이터가 오래됨` 이 보이면 갱신 실패다. 그 주문표는 쓰지 않는다.
 
-```
-기준일(마지막 종가): 2026-09-01  종가 31.20  레짐: 강세  일변동성 3.9%
-총자산 108,420.00  현금 61,300.00  활성 바스켓 3
-
-## 다음 거래일 주문 (종가 주문)
-symbol side type  limit  qty  basket   reason
-  SOXL SELL  LOC  33.10   95       2   lot_tp
-  SOXL  BUY  LOC  30.59  204       2   dip_slice
-  SOXL SELL  MOC   None  310       1   basket_tp
-```
-
-- **BUY LOC**: 지정가(limit) 로 LOC 매수. 종가가 limit 이하로 마감하면 체결.
-- **SELL LOC**: 로트 익절. 종가가 limit 이상이면 체결.
-- **SELL MOC**: 바스켓 전량 청산. 시장가 종가 주문.
-- **SELL LOC (upday_sell)**: 상승일 부분매도. 지정가가 전일종가라서 오르면 체결, 내리면 미체결.
-- 첫 줄에 `⚠ 서킷브레이커 발동 중` 이 보이면(공격형) 매수 주문이 없는 것이 정상이다.
-- 같은 날 매수·매도가 동시에 나올 수 있다(서로 다른 가격대이므로 둘 다 넣는다).
-- 증권사 앱에서 LOC/MOC 를 지원하는지 확인한다(국내 주요 증권사 미국주식 주문창에서 LOC/MOC 선택 가능).
-
-## 상태 관리 방식
-
-이 도구는 별도 포지션 파일을 두지 않고, `configs/*.yaml` 의 `start` 와 `initial_capital` 로
-**전 구간을 재현(replay)** 해 오늘의 바스켓 상태와 내일 주문을 만든다.
-
-- 실제 체결이 시뮬레이션과 달라졌다면(미체결, 수량 반올림 등) 가장 간단한 복구는
-  **현재 시점을 새 시작일로 잡고 `initial_capital` 을 현재 총자산으로 바꿔 새 라운드로 시작**하는 것이다.
-- 입출금이 있으면 같은 방식으로 `initial_capital` 을 갱신한다.
-- 주문 수량은 정수 주로 내림한다(`orders.py`). 소액 계좌는 슬라이스가 1주 미만이 될 수 있으니 `slices` 를 줄인다.
-
-## 페이퍼 트레이딩 절차 (실운용 전 30~60 거래일)
-
-1. 시작일을 정하고 `configs/soxl_balanced.yaml` 의 `data.start` 를 그 날짜로, `initial_capital` 을 모의 자본으로 바꾼다 (또는 `qtrade make-configs` 후 수정).
-2. 매일 아침 `qtrade data update` → `qtrade orders ... --env paper` → auto_trade 모의투자로 집행.
-3. 다음 날 실제 체결을 `reports/orders/fills.csv` 에 기록한다. 열: `date,symbol,side,qty,price,fee,tag`. 이 파일이 로드맵 D(체결 기반 상태 보정)의 입력이 된다.
-4. 주 1회 시뮬레이션 상태(`state_*.csv`)와 모의 계좌 잔고를 대조한다. 수량·평단 차이가 1% 를 넘으면 시작일·자본을 현재 값으로 재설정한다.
-5. 30 거래일 후 체결가 오차(지정가 대비 평균 슬리피지)와 미체결 비율을 집계해 `costs.slippage_pct` 에 반영한다.
-
-## 점검 주기
+## 4. 월·분기·연 루틴
 
 | 주기 | 할 일 |
 |---|---|
-| 매일 | 주문표 생성 → 주문 입력 → 다음 날 체결 확인 |
-| 매월 | `qtrade backtest -c configs/soxl_balanced.yaml` 로 최신 데이터까지의 성과·MDD 확인 |
-| 분기 | `qtrade sweep` 으로 파라미터 안정성 점검(학습/검증 분리). 상위 조합이 크게 바뀌면 원인(레짐 변화)을 먼저 확인 |
-| 레짐 전환 시 | 약세 전환일에 `regime_bear` MOC 청산이 나오는지 확인. 이 규칙이 MDD 방어의 핵심이므로 임의로 건너뛰지 않는다 |
+| 월 1회 | `qtrade portfolio configs/portfolio_soxl_gld.yaml` 리포트로 슬리브별·결합 성과와 낙폭 확인. 집행기 잔고와 replay 상태(`state_*.csv`) 대조 — 수량·평단 차이 1% 초과면 §6 재설정 |
+| 분기 1회 | 스냅샷 커밋(`git add -f data/cache/*.csv`), `qtrade walkforward -c configs/soxl_balanced_cache.yaml -g configs/sweeps/walkforward_core.yaml` 재실행. 선정 조합이 프로필과 달라지면 docs/02 §3 에 기록하고 `profiles.py` 변경을 검토 |
+| 연 1회 (1월 첫 거래일) | GLD 슬리브 리밸런싱: 통합 주문서에 GLD MOC 매수/매도가 나온다. `qtrade tax -c configs/live_soxl.yaml` 로 전년도 양도세 산출액을 확인해 5월 납부 현금을 남긴다 |
 
-## 시작 자산
+## 5. 이상 상황 대응
 
-정수 주 제약 검토(docs/02 §6) 기준: 균형형 최소 $10k(≈1,400만원), 권장 $20k 이상. 방어형 권장 $50k, 공격형 $30k 이상.
-소액이면 `baskets.slices` 를 4 로 줄여 슬라이스당 주수를 확보한다. 실제 주문표는 정수 주로 내림하므로 `qtrade orders` 결과에서 수량 0 인 주문이 자주 보이면 자본이 부족한 신호다.
+| 상황 | 대응 |
+|---|---|
+| 낙폭이 프로필 MDD(균형형 −28%, 전략 B −19%)를 넘음 | 규칙을 바꾸지 말고 **멈춘다.** 데이터 오류·체결 오차·시장 구조 변화를 백테스트로 확인한 뒤에만 재개 |
+| `regime_bear` MOC 청산이 나옴 | 건너뛰지 않는다. 2008·2022 에서 계좌를 지킨 규칙이다 |
+| 공격형에서 `⚠ 서킷브레이커 발동 중` | 매수 주문이 없는 것이 정상. SOXL 이 200일선 위로 복귀하면 자동 재개 |
+| 미체결·부분체결로 replay 와 실계좌가 어긋남 | 소액이면 무시(월 대조에서 1% 이내). 넘으면 §6 |
+| 입출금 | §6 재설정 |
+| yfinance 오류로 갱신 실패 | 그날은 주문 없이 넘긴다. 이틀 이상이면 `data/cache/*.csv` 를 다른 소스로 채운 뒤 재발급 |
+| 현금 비중 80% 이상 | 정상이다. 그 현금이 낙폭을 −28% 로 만든 장본인이다. 단기채 파킹 외 다른 종목 매수 금지 |
 
-## 세후 원화 기대치 (docs/02 §7)
+## 6. 재설정 (새 라운드 시작)
 
-실운용 기대치는 세전 달러가 아니라 **세후 원화**로 본다. 양도세 22%·이자세 15.4% 반영 시 CAGR 은 방어형 약 9~11%, 균형형 12~16%, 공격형 10~18% (구간에 따라). 공격형은 세후로는 균형형에 뒤지고 낙폭만 크다.
-매년 5월 전년도 실현이익 22% 를 납부해야 하므로, 연말 `qtrade tax -c configs/soxl_balanced.yaml` 로 산출 세액을 확인해 현금을 남겨 둔다.
-환율 일별 데이터는 `qtrade data update USDKRW` 로 받는다.
+replay 와 실계좌가 어긋났거나 입출금이 있었을 때: `configs/live_soxl.yaml` 의 `data.start` 를 오늘로, `initial_capital` 을 바스켓 슬리브의 현재 달러 총액으로 바꾼다. 보유 SOXL 이 있으면 (a) 전량 MOC 매도 후 새 라운드를 시작하거나, (b) 보유분을 그대로 두고 현금만 재설정한다(이 경우 보유분은 수동 관리). 단순한 (a) 를 권한다.
 
-## 프로필 선택 기준 (docs/02 §2)
+## 7. 운용자 심리 규칙
 
-| 프로필 | 이런 사람 | 각오해야 할 것 (백테스트 기준) |
-|---|---|---|
-| 방어형 | 낙폭 20% 를 넘기면 잠이 안 오는 사람, 자금이 큰 사람 | MDD −26%, 최악의 달 −15%, 연 10~17% |
-| 균형형 | 기본 | MDD −36%, 최악의 달 −22%, 3년 중 1년은 마이너스 가능 |
-| 공격형 | 낙폭 −45% 를 견디고 회복까지 1.5년을 기다릴 수 있는 사람 | MDD −43%, 최악의 달 −34% |
+1. 주문표를 그대로 넣는다. 종가 주문이라 장중 가격을 볼 이유가 없다. 하루 한 번, 정해진 시간에만.
+2. 낙폭은 설계된 값이다. 균형형은 백테스트 기간의 16% 를 낙폭 20% 초과 상태로 보냈다. 이상 신호는 "프로필 MDD 를 넘는 낙폭"뿐.
+3. 낙폭 뒤 규모 축소는 회복을 4배 늦췄다(검증됨). 프로필은 시작 전에 고르고 낙폭 중에 바꾸지 않는다.
+4. 강세장에서 SOXL 보유보다 덜 버는 것은 설계다. 투자비중 16% 가 낙폭 −28% 를 만든다.
+5. 월 1회만 성과를 본다.
 
-프로필은 자산이 빠진 뒤가 아니라 **시작 전에** 고른다. 낙폭 중에 방어형으로 바꾸는 것은 "낙폭 연동 축소"와 같은 행동이고, 백테스트상 회복을 4배 늦췄다.
+## 8. 바꾸지 않는 것
 
-## 운용자 심리 방어 규칙
-
-1. **주문표를 그대로 넣는다.** 종가 주문이므로 장중 가격을 볼 이유가 없다. 하루 한 번, 정해진 시간에만 확인한다.
-2. **낙폭은 설계된 값이다.** 균형형은 백테스트 기간의 16% 를 낙폭 20% 초과 상태로 보냈다. 낙폭 −20% 는 이상 신호가 아니라 예정된 상태다. 이상 신호는 "프로필의 MDD 를 넘어서는 낙폭" 뿐이다.
-3. **프로필 MDD 를 넘으면 규칙을 바꾸는 게 아니라 멈춘다.** 원인(데이터·체결 오차·시장 구조 변화)을 백테스트로 확인한 뒤에만 재개한다.
-4. **약세 전환 청산(`regime_bear`)을 건너뛰지 않는다.** 2008·2022 에서 계좌를 지킨 규칙이다.
-5. **현금 비중이 80% 인 것은 정상이다.** 놀고 있는 것처럼 보이는 현금이 낙폭 −36% 를 만든 장본인이다. 단기채 ETF 파킹은 허용, 다른 종목 매수는 금지.
-6. **월 1회만 성과를 본다.** 일 단위 손익 확인은 규칙 이탈의 가장 흔한 원인이다.
-
-## 리스크 규칙 (임의 변경 금지 목록)
-
-1. 강제 시간청산(`hard_max_hold_days`)과 약세 전환 청산(`bear_liquidate`)은 끄지 않는다.
-2. 약세장에서 바스켓 수(`bear_max_baskets`)를 늘리지 않는다.
-3. 상승일 부분매도(`upday_sell_frac`)를 0 으로 내리지 않는다 (MDD −52% 로 돌아간다).
-4. 예산 합(`budget_frac × count`)이 1을 크게 넘지 않게 한다.
+강제 시간청산(`hard_max_hold_days`), 약세 전환 청산(`bear_liquidate`), 상승일 부분매도(`upday_sell_frac`, 0 이면 MDD −45%), 손절 없음(`basket_sl_pct: null`), 약세장 바스켓 1개. 근거 docs/02 §3.
