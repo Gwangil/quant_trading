@@ -1,6 +1,7 @@
 """다전략 포트폴리오: 슬리브(전략 설정 + 자본 비중)를 각각 돌려 결합한다.
 
-- 각 슬리브는 자기 자본(총자본 × weight)으로 독립 운용. 슬리브 간 리밸런싱은 `rebalance: none|yearly|risk_parity`.
+- 각 슬리브는 자기 자본(총자본 × weight)으로 독립 운용. 슬리브 간 리밸런싱은 `rebalance: none|yearly|band|risk_parity`.
+  band: 어떤 슬리브의 실제 비중이 목표에서 `rebalance_band`(기본 0.05) 이상 벗어난 날 목표 비중으로 복원(다음 거래일 MOC).
   risk_parity: 매년 첫 거래일에 직전 `rp_lookback`(기본 252) 거래일 슬리브 수익률 변동성의 역수에 비례해 비중 결정
   (weight 는 상한 `rp_max_weight` 및 초기값으로만 쓰임). 미래참조 없음(직전 연도 변동성).
 - 결합 자산곡선·지표·슬리브 간 상관·개별 vs 결합 비교, 그리고 **통합 주문서**(슬리브 주문을 종목·방향·유형·가격으로 합산)를 낸다.
@@ -44,7 +45,7 @@ def run_portfolio(spec: dict) -> dict:
     eqs = pd.DataFrame({n: r.equity.reindex(idx) for n, r in zip(names, results)})
     rets = eqs.pct_change().fillna(0.0)
     weight_log = []
-    if spec["rebalance"] in ("yearly", "risk_parity"):
+    if spec["rebalance"] in ("yearly", "risk_parity", "band"):
         # 매년 첫 거래일에 목표 비중으로 리밸런싱 (슬리브 수익률 결합)
         w0 = np.array(weights) / sum(weights)
         lookback = int(spec.get("rp_lookback", 252)); wmax = float(spec.get("rp_max_weight", 1.0))
@@ -57,8 +58,12 @@ def run_portfolio(spec: dict) -> dict:
             w = np.minimum(w, wmax); return w / w.sum()
         combined = [cap]; cur_w = w0.copy(); val = cap; year = idx[0].year
         weight_log.append((idx[0], cur_w.copy()))
+        band = float(spec.get("rebalance_band", 0.05))
         for t in range(1, len(idx)):
-            if idx[t].year != year:
+            if spec["rebalance"] == "band":
+                if np.abs(cur_w - w0).max() > band:
+                    cur_w = w0.copy(); weight_log.append((idx[t], cur_w.copy()))
+            elif idx[t].year != year:
                 cur_w = target(t); year = idx[t].year; weight_log.append((idx[t], cur_w.copy()))
             growth = 1 + rets.iloc[t].values
             sleeve_vals = cur_w * val * growth
@@ -75,19 +80,53 @@ def run_portfolio(spec: dict) -> dict:
             "metrics": metrics, "corr": corr, "spec": spec, "weight_log": wl}
 
 
+def rebalance_orders(out: dict, asof=None) -> list[dict]:
+    """슬리브 간 리밸런싱 주문. 기준일의 슬리브 자산으로 실제 비중을 재고, 정책(yearly: 다음 거래일이 새해 첫 거래일 / band: 이탈)에
+    해당하면 **바스켓이 아닌 슬리브**(GLD 등 단일 포지션)에 목표 비중 복원 MOC 주문을 낸다.
+    바스켓 슬리브는 replay 자본이 고정이라 주문으로 조정할 수 없다 → 리밸런싱 날 운용 설정의 initial_capital 을 새 배정액으로 재설정한다(docs/03 §4)."""
+    spec = out["spec"]; pol = spec["rebalance"]
+    if pol in ("none",):
+        return []
+    eqs = out["equities"]; last = eqs.index[-1] if asof is None else pd.Timestamp(asof)
+    vals = eqs.loc[last]; total = float(vals.sum()); w0 = np.array(out["weights"]) / sum(out["weights"])
+    cur = vals.values / total
+    due = False
+    if pol == "band":
+        due = np.abs(cur - w0).max() > float(spec.get("rebalance_band", 0.05))
+    elif pol in ("yearly", "risk_parity"):
+        nxt = last + pd.offsets.BDay(1)
+        due = nxt.year != last.year
+    if not due:
+        return []
+    rows = []
+    for n, r, wt, cv in zip(out["names"], out["results"], w0, vals.values):
+        if r.strategy is not None:      # 바스켓 슬리브: 주문 대신 자본 재설정 안내
+            rows.append({"sleeve": n, "symbol": r.cfg.data.symbol, "side": "RESET", "kind": "CAPITAL", "limit": None,
+                         "qty": round(float(wt * total), 2), "reason": f"initial_capital 을 {wt:.0%} 배정액으로 재설정"})
+            continue
+        px = float(r.frame["close"].iloc[-1]); delta = wt * total - float(cv)
+        if abs(delta) / total < 0.005:
+            continue
+        rows.append({"sleeve": n, "symbol": r.cfg.data.symbol, "side": "BUY" if delta > 0 else "SELL", "kind": "MOC", "limit": None,
+                     "qty": abs(delta) / px, "reason": f"rebalance→{wt:.0%}"})
+    return rows
+
+
 def combined_orders(out: dict) -> pd.DataFrame:
-    """슬리브 주문을 (symbol, side, kind, limit) 로 합산. limit None(MOC) 은 함께 묶임."""
+    """슬리브 주문 + 리밸런싱 주문을 (symbol, side, kind, limit) 로 합산. limit None(MOC) 은 함께 묶임."""
     rows = []
     for n, r in zip(out["names"], out["results"]):
         sym = r.cfg.data.symbol
         for o in r.pending_orders:
             rows.append({"sleeve": n, "symbol": sym, "side": o.side, "kind": o.kind,
                          "limit": None if o.limit is None else round(float(o.limit), 2), "qty": o.qty, "reason": o.reason})
+    rows += rebalance_orders(out)
     if not rows:
         return pd.DataFrame(columns=["symbol", "side", "kind", "limit", "qty", "sleeves"])
     df = pd.DataFrame(rows)
     g = df.groupby(["symbol", "side", "kind", "limit"], dropna=False).agg(qty=("qty", "sum"), sleeves=("sleeve", lambda s: "+".join(sorted(set(s))))).reset_index()
-    g["qty"] = g["qty"].astype(int)
+    g["qty"] = g["qty"].round(2)
+    g.loc[g.kind != "CAPITAL", "qty"] = g.loc[g.kind != "CAPITAL", "qty"].astype(int)
     return g[g.qty > 0].sort_values(["symbol", "side", "limit"], na_position="first")
 
 

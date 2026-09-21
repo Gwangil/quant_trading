@@ -75,3 +75,23 @@ def test_regime_switch_holds_only_in_selected_regime():
     assert bull["exposure"].iloc[200] > 0.9 and bull["exposure"].iloc[-1] == 0.0
     assert (alw["exposure"].iloc[60:] > 0.9).all()
 
+
+
+def test_rebalance_orders_emitted_on_year_boundary_and_band(tmp_path):
+    import yaml
+    from qtrade.config import save_config
+    from qtrade.portfolio import rebalance_orders
+    from tests.test_core import base_cfg
+    bc = base_cfg(**{"data.source": "csv"}); save_config(bc, tmp_path / "b.yaml")
+    tc = _switch_cfg(hold_when="always"); yaml.safe_dump(tc.to_dict(), open(tmp_path / "t.yaml", "w"))
+    sl = [{"name": "basket", "config": str(tmp_path / "b.yaml"), "weight": 0.7}, {"name": "hold", "config": str(tmp_path / "t.yaml"), "weight": 0.3}]
+    out = run_portfolio({"name": "p", "initial_capital": 100_000, "rebalance": "band", "rebalance_band": 0.0, "sleeves": sl})
+    ro = rebalance_orders(out)                       # 밴드 0 → 항상 이탈 → 주문 발생
+    kinds = {r["kind"] for r in ro}
+    assert "CAPITAL" in kinds and any(r["symbol"] == "SOXL" and r["side"] == "RESET" for r in ro)
+    hold = [r for r in ro if r["sleeve"] == "hold"]
+    assert hold and hold[0]["kind"] == "MOC" and hold[0]["side"] in ("BUY", "SELL") and hold[0]["qty"] > 0
+    out_y = run_portfolio({"name": "p", "initial_capital": 100_000, "rebalance": "yearly", "sleeves": sl})
+    last = out_y["equities"].index[-1]
+    due = (last + pd.offsets.BDay(1)).year != last.year
+    assert bool(rebalance_orders(out_y)) == due

@@ -43,6 +43,7 @@ uv run qtrade orders -c configs/live_soxl.yaml -o reports/orders --env real --fo
 - `BUY LOC 지정가`: 종가가 지정가 이하로 마감하면 체결. 같은 가격의 바스켓 주문은 한 건으로 합쳐져 있다.
 - `SELL LOC 지정가`: 로트 익절. 종가가 지정가 이상이면 체결. 지정가가 전일종가와 같은 `upday_sell` 은 상승 마감일 부분매도.
 - `SELL MOC`: 바스켓 전량 청산(목표 도달·기간 만료·약세 전환). 반드시 낸다.
+- `GLD BUY/SELL MOC rebalance→30%`: 연 1회 슬리브 리밸런싱(§4). `SOXL RESET CAPITAL`: 주문이 아니라 설정 재설정 안내 행이다 — 집행기에 보내지 않는다.
 - 같은 날 매수·매도가 동시에 나오는 것이 정상이다. 서로 다른 가격이므로 둘 다 낸다.
 - 첫 줄에 `⚠ 데이터가 오래됨` 이 보이면 갱신 실패다. 그 주문표는 쓰지 않는다.
 
@@ -52,7 +53,7 @@ uv run qtrade orders -c configs/live_soxl.yaml -o reports/orders --env real --fo
 |---|---|
 | 월 1회 | `qtrade portfolio configs/portfolio_soxl_gld.yaml` 리포트로 슬리브별·결합 성과와 낙폭 확인. 집행기 잔고와 replay 상태(`state_*.csv`) 대조 — 수량·평단 차이 1% 초과면 §6 재설정 |
 | 분기 1회 | 스냅샷 커밋(`git add -f data/cache/*.csv`), `qtrade walkforward -c configs/soxl_balanced_cache.yaml -g configs/sweeps/walkforward_core.yaml` 재실행. 선정 조합이 프로필과 달라지면 docs/02 §3 에 기록하고 `profiles.py` 변경을 검토 |
-| 연 1회 (1월 첫 거래일) | GLD 슬리브 리밸런싱: 통합 주문서에 GLD MOC 매수/매도가 나온다. `qtrade tax -c configs/live_soxl.yaml` 로 전년도 양도세 산출액을 확인해 5월 납부 현금을 남긴다 |
+| 연 1회 (전년 마지막 거래일 아침 발급분) | 통합 주문서에 `GLD BUY/SELL MOC rebalance→30%` 와 `SOXL RESET CAPITAL <금액>` 행이 나온다. GLD 주문은 그대로 집행하고, RESET 행의 금액을 `configs/live_soxl.yaml` 의 `initial_capital` 에 넣고 `data.start` 를 새해 첫 거래일로 바꾼다(보유 SOXL 이 있으면 §6 (a)/(b) 중 택일). `qtrade tax` 로 전년도 양도세 산출액을 확인해 5월 납부 현금을 남긴다 |
 
 ## 5. 이상 상황 대응
 

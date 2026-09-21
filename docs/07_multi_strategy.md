@@ -25,7 +25,7 @@ configs/*.yaml  (kind: basket_loc | trend | ...)      configs/portfolio_*.yaml (
 
 - **전략 종류(kind)** 는 YAML 최상위 `kind` 로 고른다. 현재 `basket_loc`(핵심)과 `regime_switch`(자산 상시/국면 보유, GLD 슬리브용) 두 가지. 기각된 `trend`·`v5_scalp` 는 2026-09-21 정리 시 코드를 제거했다(결과는 §4 에 유지).
 - **범용 시뮬레이터** `sim.py`: 전략은 `prepare(frame)`(지표) 와 `orders(i, frame, state)`(다음 거래일 주문) 만 구현한다. 종가 체결(LOC/MOC), 현금 파킹, 수수료, 정수 주는 시뮬레이터가 처리한다. 결과는 바스켓 엔진과 같은 `BacktestResult` 라 리포트·세금·주문서·서버가 그대로 붙는다.
-- **포트폴리오** `portfolio.py`: 슬리브마다 자본 비중을 주고 독립 운용, 슬리브 리밸런싱은 `none | yearly | risk_parity`(직전 252일 변동성 역수, `rp_max_weight` 상한). 결합 지표, 슬리브 간 일간수익률 상관, 연도별 표, **통합 주문서**(같은 종목·방향·유형·가격 합산)를 낸다.
+- **포트폴리오** `portfolio.py`: 슬리브마다 자본 비중을 주고 독립 운용, 슬리브 리밸런싱은 `none | yearly | band(rebalance_band 이탈 시) | risk_parity`. 통합 주문서에는 슬리브 자체 주문 외에 **리밸런싱 주문**(단일 포지션 슬리브는 MOC, 바스켓 슬리브는 `RESET CAPITAL` 안내 행)이 포함된다. 결합 지표, 슬리브 간 일간수익률 상관, 연도별 표, **통합 주문서**(같은 종목·방향·유형·가격 합산)를 낸다.
 
 ### 새 전략 추가 절차
 1. `src/qtrade/strategies/<name>.py` 에 규칙 dataclass + 설정 dataclass(`to_dict`, `with_overrides`) + `Strategy(prepare, orders)` + `run_<name>(cfg, data)`.
