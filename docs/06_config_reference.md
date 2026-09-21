@@ -75,6 +75,11 @@ YAML 은 `qtrade make-configs` 가 `src/qtrade/profiles.py` 에서 생성한다.
 | `enabled` | `True` | 기준지수 추세 레짐 사용 |  |
 | `ma_window` | `200` | 기준 지수 종가 vs 이동평균 → 강세/약세 |  |
 | `ma_band` | `0.0` | 히스테리시스 밴드: 강세 전환은 MA×(1+band) 상향, 약세 전환은 MA×(1−band) 하향 돌파 |  |
+| `mode` | `"ma"` | ma: 종가 vs 이평 | dual_ma: 단기이평 vs 장기이평 |  |
+| `fast_window` | `50` | dual_ma 의 단기 이평 |  |
+| `slope_days` | `0` | >0 이면 강세 조건에 '이평 기울기 > 0 (slope_days 전 대비)' 추가 |  |
+| `eval_freq` | `"daily"` | daily | weekly | monthly: 국면 판정 주기 (그 외 날은 직전 판정 유지) |  |
+| `band_atr_mult` | `0.0` | >0 이면 밴드 = mult × ATR(20)/MA (변동성 비례 히스테리시스, ma_band 대신) |  |
 | `bear_max_baskets` | `1` | 약세장에서 동시 운용 가능한 바스켓 수 |  |
 | `bear_slice_mult` | `0.5` | 약세장 슬라이스 크기 배수 |  |
 | `bear_no_new_lots` | `False` | 약세장에서는 신규 매수 자체를 중단 | 실험 |

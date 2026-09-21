@@ -88,6 +88,13 @@ class _Div:
 def run_reference(close: pd.Series, capital: float, p: ReferenceParams = BASELINE,
                   rsi: pd.Series | None = None) -> tuple[pd.Series, int, int]:
     """(일별 총자산, 종료 바구니 수, 체결 건수) 반환. rsi 를 주면(스냅샷 컬럼) 그대로 쓰고, 없으면 close 로 계산."""
+    r = run_reference_full(close, capital, p, rsi)
+    return r["equity"], r["n_closed"], r["n_fills"]
+
+
+def run_reference_full(close: pd.Series, capital: float, p: ReferenceParams = BASELINE,
+                       rsi: pd.Series | None = None) -> dict:
+    """상세 결과: equity, rows(일별 shares/cash/halted), divs(최종 상태), n_closed, n_fills, last(prev_close, prev_rsi...)."""
     close = close.dropna()
     rsi = rsi.reindex(close.index) if rsi is not None else rsi_sma(close, p.rsi_period)
     df = pd.DataFrame({"c": close, "prev_c": close.shift(1), "prev_rsi": rsi.shift(1)})
@@ -99,12 +106,15 @@ def run_reference(close: pd.Series, capital: float, p: ReferenceParams = BASELIN
     realized = 0.0
     n_closed = 0
     halted, peak, prev_eq = False, capital, capital
-    eq = []
+    eq = []; rows_log = []
 
     def record(date, px):
         nonlocal prev_eq
         total = sum(d.cash + d.shares * px for d in divs) + realized
+        sh = sum(d.shares for d in divs)
         eq.append((date, total)); prev_eq = total
+        rows_log.append(dict(date=date, close=px, shares=sh, invested=sh * px, cash=total - sh * px, equity=total,
+                             n_active=sum(d.active for d in divs), halted=halted))
 
     def sell(d, px, pct, date):
         nonlocal realized, n_closed
@@ -155,4 +165,6 @@ def run_reference(close: pd.Series, capital: float, p: ReferenceParams = BASELIN
     s = pd.Series(dict(eq), name="equity")
     s.index = pd.DatetimeIndex(s.index)
     n_fills = sum(len(d.trades) for d in divs)
-    return s, n_closed, n_fills
+    return {"equity": s, "rows": rows_log, "divs": divs, "n_closed": n_closed, "n_fills": n_fills, "halted": halted,
+            "last": {"close": float(df["c"].iloc[-1]), "rsi": float(rsi.reindex(df.index).iloc[-1]) if rsi is not None else float("nan"),
+                     "bull": (bool(df["prev_bull"].iloc[-1]) if "prev_bull" in df and not pd.isna(df["prev_bull"].iloc[-1]) else True)}}

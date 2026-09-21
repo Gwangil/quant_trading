@@ -31,7 +31,7 @@ def prepare_frame(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> pd.D
     df = (data if data is not None else build_dataset(cfg.data)).copy()
     df["vol"] = realized_vol(df["close"], cfg.entry.vol_window)
     ma = sma(df["ref_close"], cfg.regime.ma_window)
-    bull = regime_flags(df["ref_close"], ma, cfg.regime.ma_band)
+    bull = regime_series(df["ref_close"], cfg.regime)
     rv = realized_vol(df["ref_close"], cfg.entry.vol_window)
     df["ref_vol"] = rv
     vol_bear = pd.Series(False, index=df.index)
@@ -43,6 +43,42 @@ def prepare_frame(cfg: StrategyConfig, data: pd.DataFrame | None = None) -> pd.D
     df["bull"] = bull.where(~vol_bear, other=0.0)
     df["sym_sma"] = sma(df["close"], cfg.regime.breaker_resume_sma)
     return df
+
+
+def regime_series(ref: pd.Series, rc) -> pd.Series:
+    """RegimeConfig 의 mode/slope/eval_freq/band 를 반영한 강세 플래그 (NaN = 미산출)."""
+    ma = sma(ref, rc.ma_window)
+    if rc.mode == "dual_ma":
+        sig, base = sma(ref, rc.fast_window), ma          # 단기이평 vs 장기이평
+    else:
+        sig, base = ref, ma
+    band = pd.Series(rc.ma_band, index=ref.index)
+    if rc.band_atr_mult > 0:
+        tr = ref.diff().abs()                              # 종가만 있으므로 |Δ종가| 를 TR 대용
+        band = (rc.band_atr_mult * tr.rolling(20).mean() / base).fillna(rc.ma_band)
+    raw = np.full(len(ref), np.nan); state = None
+    s_, b_, bd = sig.values, base.values, band.values
+    slope_ok = np.ones(len(ref), dtype=bool)
+    if rc.slope_days > 0:
+        slope_ok = (ma > ma.shift(rc.slope_days)).fillna(False).values
+    for i in range(len(ref)):
+        if np.isnan(b_[i]) or np.isnan(s_[i]):
+            continue
+        up = s_[i] > b_[i] * (1 + bd[i]); down = s_[i] < b_[i] * (1 - bd[i])
+        if state is None:
+            state = s_[i] > b_[i]
+        elif state and down:
+            state = False
+        elif not state and up:
+            state = True
+        raw[i] = bool(state and slope_ok[i])
+    out = pd.Series(raw, index=ref.index)
+    if rc.eval_freq in ("weekly", "monthly"):
+        period = out.index.to_period("W" if rc.eval_freq == "weekly" else "M")
+        last_of_period = pd.Series(period, index=out.index).ne(pd.Series(period, index=out.index).shift(-1))
+        held = out.where(last_of_period).shift(1).ffill()     # 판정일 다음 날부터 다음 판정일까지 유지
+        out = held.where(out.notna())
+    return out
 
 
 def regime_flags(ref: pd.Series, ma: pd.Series, band: float) -> pd.Series:

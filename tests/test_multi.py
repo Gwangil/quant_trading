@@ -86,3 +86,20 @@ def test_regime_switch_holds_only_in_selected_regime():
     assert bear["exposure"].iloc[-1] > 0.9 and bear["exposure"].iloc[200] == 0.0
     assert bull["exposure"].iloc[200] > 0.9 and bull["exposure"].iloc[-1] == 0.0
     assert (alw["exposure"].iloc[60:] > 0.9).all()
+
+
+def test_v5_kind_runs_and_emits_next_day_orders(tmp_path):
+    import yaml
+    from qtrade.strategies.v5_scalp import V5Config, run_v5
+    from qtrade.reference import ReferenceParams
+    data = make_data(seed=9, n=700)
+    cfg = V5Config(name="v", initial_capital=50_000, data=DataConfig(source="csv"), rules=ReferenceParams(target_profit=0.015, breaker_dd=-0.15))
+    res = run_v5(cfg, data)
+    f = res.frame
+    np.testing.assert_allclose(f["equity"], f["cash"] + f["invested"])
+    assert abs(f["equity"].iloc[0] - 50_000) < 1e-6 and (f["exposure"] <= 1 + 1e-9).all()
+    for o in res.pending_orders:
+        assert o.side in ("BUY", "SELL") and o.kind in ("LOC", "MOC") and o.qty > 0
+        if o.kind == "LOC": assert o.limit > 0
+    p = tmp_path / "v.yaml"; yaml.safe_dump(cfg.to_dict(), open(p, "w"))
+    cfg2, kind = load_any(p); assert kind == "v5_scalp" and cfg2.rules.target_profit == 0.015

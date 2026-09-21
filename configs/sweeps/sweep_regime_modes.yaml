@@ -1,0 +1,10 @@
+# 횡보 whipsaw 대응: 레짐 판정 방식 (월/주 1회 판정, 이평 기울기, 이중 이평, ATR 밴드). 데이터 data/cache
+split: "2018-01-01"
+max_mdd: -0.45
+by: simple_annual
+grid:
+  regime.mode: [ma, dual_ma]
+  regime.fast_window: [50]
+  regime.slope_days: [0, 20, 60]
+  regime.eval_freq: [daily, weekly, monthly]
+  regime.band_atr_mult: [0.0, 1.0, 2.0]

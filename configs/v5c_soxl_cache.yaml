@@ -1,0 +1,9 @@
+# 변동성 수확 슬리브 (복리 변형): 바구니 예산을 현재 총자산/8 로 갱신. 슬리브 결합용
+kind: v5_scalp
+name: v5c_soxl_cache
+initial_capital: 100000
+cash_yield_annual: 0.0
+data: {symbol: SOXL, reference: SOXX, source: csv, start: null, end: null, backfill: false, synthetic: null}
+rules: {div_count: 8, buy_ratio: 0.6, partial_sell: 0.2, target_profit: 0.015, rsi_max: 90, rsi_period: 14, max_hold_days: 40,
+        max_entry_rise: -0.001, addon_drop: -0.05, commission: 0.001, breaker_dd: -0.15, resume_sma: 200, compound: true}
+costs: {commission_pct: 0.001, slippage_pct: 0.0, integer_shares: false}

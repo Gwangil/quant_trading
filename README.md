@@ -2,7 +2,7 @@
 
 > 미국 레버리지 ETF(기본: SOXL, 기준지수 SOXX)를 대상으로 **하루 한 번 종가 주문(LOC/MOC)** 만으로 운용하는
 > 퀀트 전략의 설계 · 백테스트 · 주문서 발급 도구입니다. 실제 주문은 집행기(auto_trade / rpa_claude)가 맡습니다.
-> 전략은 `kind` 로 등록되는 플러그인이며(분할 바스켓 LOC, 추세추종), 슬리브로 묶어 다전략 포트폴리오를 만듭니다 (docs/07).
+> 전략은 `kind` 로 등록되는 플러그인이며(분할 바스켓 LOC, 추세추종, 국면 스위치, v5 변동성 수확), 슬리브로 묶어 다전략 포트폴리오를 만듭니다 (docs/07).
 > 이전 마이크로서비스 프로젝트는 `backup/old-main-msa` 브랜치에 보존되어 있습니다.
 
 ## 전략 한 줄 요약
@@ -98,6 +98,7 @@ configs/            전략 설정(YAML). qtrade make-configs 로 profiles.py 에
   tqqq/upro/tecl_balanced_cache.yaml                 종목 확장 검증
   portfolio_soxl_gld.yaml                            권장 다전략 (바스켓 70 + GLD 30); _gld_tlt 는 낙폭 최소 옵션, _trend 는 기각 예시
   tlt/ief/shy_always.yaml, bear_tlt.yaml             채권 슬리브 검증 (보류)
+  v5_soxl_cache.yaml, v5c_soxl_cache.yaml            v5 슬리브 검증 (기각)
   nasdaq3x_*.yaml                                    나스닥×3 프록시 스트레스
   sweeps/                                            탐색 그리드
 data/cache/         qtrade data update 결과 (SOXL/SOXX 2001~최신, git 추적: git add -f)
@@ -112,7 +113,7 @@ src/qtrade/
   strategy.py       로트·바스켓 상태와 일간 주문 생성 규칙 (바스켓 전략의 핵심)
   engine.py         바스켓 전용 LOC/MOC 종가 체결 엔진
   sim.py            범용 포지션 시뮬레이터 (추세 등 kind 전략용)
-  strategies/       kind 레지스트리(__init__), trend.py 추세추종, regime_switch.py 국면 스위치
+  strategies/       kind 레지스트리(__init__), trend.py 추세추종, regime_switch.py 국면 스위치, v5_scalp.py v5 변동성 수확
   portfolio.py      슬리브 결합·상관·통합 주문서 (qtrade portfolio)
   metrics.py        단리/CAGR/MDD/회복기간/연도별 수익률
   report.py         마크다운 + 차트 리포트
