@@ -1,6 +1,7 @@
 """다전략 포트폴리오: 슬리브(전략 설정 + 자본 비중)를 각각 돌려 결합한다.
 
-- 각 슬리브는 자기 자본(총자본 × weight)으로 독립 운용. 슬리브 간 리밸런싱은 `rebalance: none|yearly|band|risk_parity`.
+- 각 슬리브는 자기 자본(총자본 × weight)으로 독립 운용. 슬리브 간 리밸런싱은 `rebalance: none|monthly|quarterly|semiannual|yearly|band|risk_parity`.
+  리밸런싱 거래 비용은 `rebalance_cost_pct`(기본 0.001, 이동 금액 기준) 로 차감한다.
   band: 어떤 슬리브의 실제 비중이 목표에서 `rebalance_band`(기본 0.05) 이상 벗어난 날 목표 비중으로 복원(다음 거래일 MOC).
   risk_parity: 매년 첫 거래일에 직전 `rp_lookback`(기본 252) 거래일 슬리브 수익률 변동성의 역수에 비례해 비중 결정
   (weight 는 상한 `rp_max_weight` 및 초기값으로만 쓰임). 미래참조 없음(직전 연도 변동성).
@@ -45,7 +46,8 @@ def run_portfolio(spec: dict) -> dict:
     eqs = pd.DataFrame({n: r.equity.reindex(idx) for n, r in zip(names, results)})
     rets = eqs.pct_change().fillna(0.0)
     weight_log = []
-    if spec["rebalance"] in ("yearly", "risk_parity", "band"):
+    CAL = {"monthly": "M", "quarterly": "Q", "semiannual": "2Q", "yearly": "Y"}
+    if spec["rebalance"] in ("yearly", "monthly", "quarterly", "semiannual", "risk_parity", "band"):
         # 매년 첫 거래일에 목표 비중으로 리밸런싱 (슬리브 수익률 결합)
         w0 = np.array(weights) / sum(weights)
         lookback = int(spec.get("rp_lookback", 252)); wmax = float(spec.get("rp_max_weight", 1.0))
@@ -56,15 +58,25 @@ def run_portfolio(spec: dict) -> dict:
             inv = np.where(vol > 0, 1.0 / vol, 0.0)
             w = inv / inv.sum() if inv.sum() > 0 else w0
             w = np.minimum(w, wmax); return w / w.sum()
-        combined = [cap]; cur_w = w0.copy(); val = cap; year = idx[0].year
+        combined = [cap]; cur_w = w0.copy(); val = cap
+        cost_pct = float(spec.get("rebalance_cost_pct", 0.001)); turnover = 0.0
+        pol = spec["rebalance"]
+        if pol == "risk_parity":
+            period = idx.year
+        elif pol in CAL:
+            code = CAL[pol]
+            period = (idx.year * 2 + (idx.month > 6)) if code == "2Q" else idx.to_period(code)
+        else:
+            period = None
         weight_log.append((idx[0], cur_w.copy()))
         band = float(spec.get("rebalance_band", 0.05))
         for t in range(1, len(idx)):
-            if spec["rebalance"] == "band":
-                if np.abs(cur_w - w0).max() > band:
-                    cur_w = w0.copy(); weight_log.append((idx[t], cur_w.copy()))
-            elif idx[t].year != year:
-                cur_w = target(t); year = idx[t].year; weight_log.append((idx[t], cur_w.copy()))
+            due = (np.abs(cur_w - w0).max() > band) if pol == "band" else (period[t] != period[t - 1])
+            if due:
+                new_w = target(t) if pol == "risk_parity" else w0.copy()
+                moved = float(np.abs(new_w - cur_w).sum() / 2 * val); turnover += moved
+                val -= moved * cost_pct
+                cur_w = new_w; weight_log.append((idx[t], cur_w.copy()))
             growth = 1 + rets.iloc[t].values
             sleeve_vals = cur_w * val * growth
             val = float(sleeve_vals.sum()); cur_w = sleeve_vals / val
@@ -77,7 +89,8 @@ def run_portfolio(spec: dict) -> dict:
     metrics["portfolio"] = compute_metrics(comb)
     wl = pd.DataFrame([dict(date=d, **{n: w for n, w in zip(names, ws)}) for d, ws in weight_log]).set_index("date") if weight_log else pd.DataFrame()
     return {"names": names, "weights": weights, "results": results, "equities": eqs, "portfolio": comb,
-            "metrics": metrics, "corr": corr, "spec": spec, "weight_log": wl}
+            "metrics": metrics, "corr": corr, "spec": spec, "weight_log": wl,
+            "n_rebalances": max(len(weight_log) - 1, 0), "turnover": locals().get("turnover", 0.0)}
 
 
 def rebalance_orders(out: dict, asof=None) -> list[dict]:
@@ -93,9 +106,13 @@ def rebalance_orders(out: dict, asof=None) -> list[dict]:
     due = False
     if pol == "band":
         due = np.abs(cur - w0).max() > float(spec.get("rebalance_band", 0.05))
-    elif pol in ("yearly", "risk_parity"):
+    elif pol in ("yearly", "risk_parity", "monthly", "quarterly", "semiannual"):
         nxt = last + pd.offsets.BDay(1)
-        due = nxt.year != last.year
+        code = {"yearly": "Y", "risk_parity": "Y", "monthly": "M", "quarterly": "Q"}.get(pol)
+        if pol == "semiannual":
+            due = (nxt.year, nxt.month > 6) != (last.year, last.month > 6)
+        else:
+            due = nxt.to_period(code) != last.to_period(code)
     if not due:
         return []
     rows = []
